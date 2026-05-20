@@ -7,6 +7,11 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { Toaster } from "sonner";
+
+import { ClientProvider } from "@/contexts/ClientContext";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { TopBar } from "@/components/layout/TopBar";
 
 import appCss from "../styles.css?url";
 
@@ -17,7 +22,7 @@ function NotFoundComponent() {
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
+          The page you are looking for does not exist or has been moved.
         </p>
         <div className="mt-6">
           <Link
@@ -40,7 +45,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+          This page did not load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong on our end. You can try refreshing or head back home.
@@ -72,14 +77,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Bluluma CMS Admin" },
+      { name: "description", content: "Internal multi-client CMS for Bluluma" },
+      { name: "author", content: "Bluluma" },
+      { property: "og:title", content: "Bluluma CMS Admin" },
+      { property: "og:description", content: "Internal multi-client CMS for Bluluma" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
@@ -113,7 +117,18 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <ClientProvider>
+        <div className="flex h-screen w-full overflow-hidden">
+          <AppSidebar />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <TopBar />
+            <main className="flex-1 overflow-auto bg-background p-6">
+              <Outlet />
+            </main>
+          </div>
+        </div>
+        <Toaster position="top-right" />
+      </ClientProvider>
     </QueryClientProvider>
   );
 }
