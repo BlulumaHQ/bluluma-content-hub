@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as MediaRouteImport } from './routes/media'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as BlogRouteImport } from './routes/blog'
@@ -18,6 +19,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortfolioRoute = PortfolioRouteImport.update({
+  id: '/portfolio',
+  path: '/portfolio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MediaRoute = MediaRouteImport.update({
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/blog': typeof BlogRoute
   '/gallery': typeof GalleryRoute
   '/media': typeof MediaRoute
+  '/portfolio': typeof PortfolioRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogRoute
   '/gallery': typeof GalleryRoute
   '/media': typeof MediaRoute
+  '/portfolio': typeof PortfolioRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,22 @@ export interface FileRoutesById {
   '/blog': typeof BlogRoute
   '/gallery': typeof GalleryRoute
   '/media': typeof MediaRoute
+  '/portfolio': typeof PortfolioRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/blog' | '/gallery' | '/media' | '/settings'
+  fullPaths: '/' | '/blog' | '/gallery' | '/media' | '/portfolio' | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/blog' | '/gallery' | '/media' | '/settings'
-  id: '__root__' | '/' | '/blog' | '/gallery' | '/media' | '/settings'
+  to: '/' | '/blog' | '/gallery' | '/media' | '/portfolio' | '/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/blog'
+    | '/gallery'
+    | '/media'
+    | '/portfolio'
+    | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,6 +92,7 @@ export interface RootRouteChildren {
   BlogRoute: typeof BlogRoute
   GalleryRoute: typeof GalleryRoute
   MediaRoute: typeof MediaRoute
+  PortfolioRoute: typeof PortfolioRoute
   SettingsRoute: typeof SettingsRoute
 }
 
@@ -86,6 +103,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portfolio': {
+      id: '/portfolio'
+      path: '/portfolio'
+      fullPath: '/portfolio'
+      preLoaderRoute: typeof PortfolioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/media': {
@@ -124,6 +148,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogRoute: BlogRoute,
   GalleryRoute: GalleryRoute,
   MediaRoute: MediaRoute,
+  PortfolioRoute: PortfolioRoute,
   SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
