@@ -334,12 +334,19 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {initialData ? "Update Portfolio" : "Save Portfolio"}
         </Button>
-        <Link to="/portfolio">
-          <Button type="button" variant="outline">
+        {onCancel ? (
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-        </Link>
+        ) : (
+          <Link to="/portfolio">
+            <Button type="button" variant="outline">
+              Cancel
+            </Button>
+          </Link>
+        )}
       </div>
+
     </form>
   );
 }
