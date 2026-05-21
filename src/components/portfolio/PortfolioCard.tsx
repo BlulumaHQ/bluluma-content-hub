@@ -1,6 +1,9 @@
-import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { ExternalLink, Pencil, Trash2 } from "lucide-react";
-import type { PortfolioItem } from "@/types";
+import { toast } from "sonner";
+
+import type { PortfolioItem, Client } from "@/types";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,15 +14,76 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 
 interface PortfolioCardProps {
   item: PortfolioItem;
+  client: Client;
   onDelete: (id: string) => void;
+  onEdited: () => void;
 }
 
-export function PortfolioCard({ item, onDelete }: PortfolioCardProps) {
+export function PortfolioCard({ item, client, onDelete, onEdited }: PortfolioCardProps) {
   const details = item.portfolio_details;
   const services = details?.services ?? [];
+  const [editOpen, setEditOpen] = useState(false);
+
+  const handleSave = async (data: {
+    title: string;
+    slug: string;
+    excerpt: string;
+    body_content: string;
+    featured_image_url: string;
+    status: "draft" | "published" | "archived";
+    is_featured: boolean;
+    sort_order: number;
+    live_url: string;
+    services: string[];
+    project_year: number | "";
+    short_summary: string;
+  }) => {
+    try {
+      const { error: contentError } = await supabase
+        .from("content_items")
+        .update({
+          title: data.title,
+          slug: data.slug,
+          excerpt: data.excerpt || null,
+          body_content: data.body_content || null,
+          featured_image_url: data.featured_image_url || null,
+          status: data.status,
+          is_featured: data.is_featured,
+          sort_order: data.sort_order,
+        })
+        .eq("id", item.id)
+        .eq("client_id", client.id);
+
+      if (contentError) throw contentError;
+
+      const detailsPayload = {
+        content_id: item.id,
+        live_url: data.live_url || null,
+        services: data.services.length > 0 ? data.services : null,
+        client_name: data.title,
+        project_year: data.project_year === "" ? null : data.project_year,
+        short_summary: data.short_summary || null,
+      };
+
+      const { error: detailsError } = await supabase
+        .from("portfolio_details")
+        .upsert(detailsPayload, { onConflict: "content_id" });
+
+      if (detailsError) throw detailsError;
+
+      toast.success("Portfolio updated successfully");
+      setEditOpen(false);
+      onEdited();
+    } catch (err) {
+      console.error("[PortfolioCard] save failed", err);
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+      throw err;
+    }
+  };
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-lg border bg-card transition-shadow hover:shadow-md">
@@ -105,11 +169,30 @@ export function PortfolioCard({ item, onDelete }: PortfolioCardProps) {
           )}
 
           <div className="ml-auto flex items-center gap-1">
-            <Link to="/portfolio/$id" params={{ id: item.id }}>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Pencil className="h-4 w-4" />
-              </Button>
-            </Link>
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  aria-label="Edit portfolio"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Edit Portfolio</DialogTitle>
+                  <DialogDescription>{item.title}</DialogDescription>
+                </DialogHeader>
+                <PortfolioForm
+                  client={client}
+                  initialData={item}
+                  onSave={handleSave}
+                  onCancel={() => setEditOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
 
             <Dialog>
               <DialogTrigger asChild>
