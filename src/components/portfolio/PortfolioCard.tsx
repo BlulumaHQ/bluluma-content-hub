@@ -43,44 +43,96 @@ export function PortfolioCard({ item, client, onDelete, onEdited }: PortfolioCar
     short_summary: string;
   }) => {
     try {
-      const { error: contentError } = await supabase
+      const sortOrderNum =
+        typeof data.sort_order === "number" && !Number.isNaN(data.sort_order)
+          ? data.sort_order
+          : parseInt(String(data.sort_order ?? "0"), 10) || 0;
+
+      const contentPayload = {
+        title: data.title,
+        slug: data.slug,
+        excerpt: data.excerpt || null,
+        body_content: data.body_content || null,
+        featured_image_url: data.featured_image_url || null,
+        status: data.status,
+        is_featured: data.is_featured,
+        sort_order: sortOrderNum,
+        updated_at: new Date().toISOString(),
+      };
+      console.log("[PortfolioCard] updating content_items", item.id, contentPayload);
+
+      const { error: contentError, status: contentStatus } = await supabase
         .from("content_items")
-        .update({
-          title: data.title,
-          slug: data.slug,
-          excerpt: data.excerpt || null,
-          body_content: data.body_content || null,
-          featured_image_url: data.featured_image_url || null,
-          status: data.status,
-          is_featured: data.is_featured,
-          sort_order: data.sort_order,
-        })
+        .update(contentPayload)
         .eq("id", item.id)
         .eq("client_id", client.id);
 
-      if (contentError) throw contentError;
+      if (contentError) {
+        console.error("[PortfolioCard] content_items update error", {
+          status: contentStatus,
+          ...contentError,
+        });
+        throw new Error(contentError.message || "Failed to update content_items");
+      }
+
+      const servicesArr = Array.isArray(data.services)
+        ? data.services.map((s) => String(s).trim()).filter(Boolean)
+        : [];
 
       const detailsPayload = {
-        content_id: item.id,
-        live_url: data.live_url || null,
-        services: data.services.length > 0 ? data.services : null,
+        live_url: data.live_url ? data.live_url.trim() : null,
+        services: servicesArr,
         client_name: data.title,
-        project_year: data.project_year === "" ? null : data.project_year,
-        short_summary: data.short_summary || null,
+        project_year:
+          data.project_year === "" || data.project_year === null || data.project_year === undefined
+            ? null
+            : String(data.project_year),
+        short_summary: data.short_summary ? data.short_summary.trim() : null,
       };
+      console.log("[PortfolioCard] saving portfolio_details", item.id, detailsPayload);
 
-      const { error: detailsError } = await supabase
+      const { data: existing, error: fetchError } = await supabase
         .from("portfolio_details")
-        .upsert(detailsPayload, { onConflict: "content_id" });
+        .select("id")
+        .eq("content_id", item.id)
+        .maybeSingle();
 
-      if (detailsError) throw detailsError;
+      if (fetchError) {
+        console.error("[PortfolioCard] portfolio_details fetch error", fetchError);
+        throw new Error(fetchError.message || "Failed to fetch portfolio_details");
+      }
 
-      toast.success("Portfolio updated successfully");
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from("portfolio_details")
+          .update(detailsPayload)
+          .eq("content_id", item.id);
+        if (updateError) {
+          console.error("[PortfolioCard] portfolio_details update error", updateError);
+          throw new Error(updateError.message || "Failed to update portfolio_details");
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from("portfolio_details")
+          .insert({ ...detailsPayload, content_id: item.id });
+        if (insertError) {
+          console.error("[PortfolioCard] portfolio_details insert error", insertError);
+          throw new Error(insertError.message || "Failed to insert portfolio_details");
+        }
+      }
+
+      toast.success("Portfolio saved successfully");
       setEditOpen(false);
       onEdited();
     } catch (err) {
       console.error("[PortfolioCard] save failed", err);
-      toast.error(err instanceof Error ? err.message : "Failed to save");
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "Failed to save";
+      toast.error(message);
       throw err;
     }
   };
