@@ -136,9 +136,15 @@ function PortfolioPage() {
             <PortfolioCard
               key={item.id}
               item={item}
+              client={selectedClient}
               onDelete={handleDelete}
+              onEdited={() => {
+                queryClient.invalidateQueries({ queryKey: ["portfolio", selectedClient.id] });
+                queryClient.invalidateQueries({ queryKey: ["dashboard-stats", selectedClient.id] });
+              }}
             />
           ))}
+
         </div>
       ) : (
         <div className="mt-8 flex flex-col items-center justify-center rounded-lg border border-dashed py-20 text-center">
