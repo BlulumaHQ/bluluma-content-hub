@@ -38,7 +38,10 @@ interface PortfolioFormProps {
   client: Client;
   initialData?: PortfolioItem;
   onSave: (data: FormData) => Promise<void>;
+  onCancel?: () => void;
 }
+
+
 
 export function PortfolioForm({ client, initialData, onSave }: PortfolioFormProps) {
   const [uploading, setUploading] = useState(false);
