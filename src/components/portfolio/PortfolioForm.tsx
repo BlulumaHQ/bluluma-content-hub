@@ -43,7 +43,7 @@ interface PortfolioFormProps {
 
 
 
-export function PortfolioForm({ client, initialData, onSave }: PortfolioFormProps) {
+export function PortfolioForm({ client, initialData, onSave, onCancel }: PortfolioFormProps) {
   const [uploading, setUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(
