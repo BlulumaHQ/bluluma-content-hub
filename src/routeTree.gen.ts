@@ -17,6 +17,7 @@ import { Route as BlogRouteImport } from './routes/blog'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortfolioNewRouteImport } from './routes/portfolio.new'
 import { Route as PortfolioIdRouteImport } from './routes/portfolio.$id'
+import { Route as BlogNewRouteImport } from './routes/blog.new'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -58,35 +59,43 @@ const PortfolioIdRoute = PortfolioIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => PortfolioRoute,
 } as any)
+const BlogNewRoute = BlogNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => BlogRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/blog': typeof BlogRoute
+  '/blog': typeof BlogRouteWithChildren
   '/gallery': typeof GalleryRoute
   '/media': typeof MediaRoute
   '/portfolio': typeof PortfolioRouteWithChildren
   '/settings': typeof SettingsRoute
+  '/blog/new': typeof BlogNewRoute
   '/portfolio/$id': typeof PortfolioIdRoute
   '/portfolio/new': typeof PortfolioNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/blog': typeof BlogRoute
+  '/blog': typeof BlogRouteWithChildren
   '/gallery': typeof GalleryRoute
   '/media': typeof MediaRoute
   '/portfolio': typeof PortfolioRouteWithChildren
   '/settings': typeof SettingsRoute
+  '/blog/new': typeof BlogNewRoute
   '/portfolio/$id': typeof PortfolioIdRoute
   '/portfolio/new': typeof PortfolioNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/blog': typeof BlogRoute
+  '/blog': typeof BlogRouteWithChildren
   '/gallery': typeof GalleryRoute
   '/media': typeof MediaRoute
   '/portfolio': typeof PortfolioRouteWithChildren
   '/settings': typeof SettingsRoute
+  '/blog/new': typeof BlogNewRoute
   '/portfolio/$id': typeof PortfolioIdRoute
   '/portfolio/new': typeof PortfolioNewRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/media'
     | '/portfolio'
     | '/settings'
+    | '/blog/new'
     | '/portfolio/$id'
     | '/portfolio/new'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/media'
     | '/portfolio'
     | '/settings'
+    | '/blog/new'
     | '/portfolio/$id'
     | '/portfolio/new'
   id:
@@ -119,13 +130,14 @@ export interface FileRouteTypes {
     | '/media'
     | '/portfolio'
     | '/settings'
+    | '/blog/new'
     | '/portfolio/$id'
     | '/portfolio/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BlogRoute: typeof BlogRoute
+  BlogRoute: typeof BlogRouteWithChildren
   GalleryRoute: typeof GalleryRoute
   MediaRoute: typeof MediaRoute
   PortfolioRoute: typeof PortfolioRouteWithChildren
@@ -190,8 +202,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortfolioIdRouteImport
       parentRoute: typeof PortfolioRoute
     }
+    '/blog/new': {
+      id: '/blog/new'
+      path: '/new'
+      fullPath: '/blog/new'
+      preLoaderRoute: typeof BlogNewRouteImport
+      parentRoute: typeof BlogRoute
+    }
   }
 }
+
+interface BlogRouteChildren {
+  BlogNewRoute: typeof BlogNewRoute
+}
+
+const BlogRouteChildren: BlogRouteChildren = {
+  BlogNewRoute: BlogNewRoute,
+}
+
+const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
 
 interface PortfolioRouteChildren {
   PortfolioIdRoute: typeof PortfolioIdRoute
@@ -209,7 +238,7 @@ const PortfolioRouteWithChildren = PortfolioRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BlogRoute: BlogRoute,
+  BlogRoute: BlogRouteWithChildren,
   GalleryRoute: GalleryRoute,
   MediaRoute: MediaRoute,
   PortfolioRoute: PortfolioRouteWithChildren,
@@ -218,3 +247,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
