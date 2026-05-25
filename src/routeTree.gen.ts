@@ -15,6 +15,7 @@ import { Route as MediaRouteImport } from './routes/media'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as BlogRouteImport } from './routes/blog'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as PortfolioNewRouteImport } from './routes/portfolio.new'
 import { Route as PortfolioIdRouteImport } from './routes/portfolio.$id'
 import { Route as BlogNewRouteImport } from './routes/blog.new'
@@ -50,6 +51,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BlogRoute,
 } as any)
 const PortfolioNewRoute = PortfolioNewRouteImport.update({
   id: '/new',
@@ -88,11 +94,11 @@ export interface FileRoutesByFullPath {
   '/blog/new': typeof BlogNewRoute
   '/portfolio/$id': typeof PortfolioIdRoute
   '/portfolio/new': typeof PortfolioNewRoute
+  '/blog/': typeof BlogIndexRoute
   '/blog/preview/$id': typeof BlogPreviewIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/blog': typeof BlogRouteWithChildren
   '/gallery': typeof GalleryRoute
   '/media': typeof MediaRoute
   '/portfolio': typeof PortfolioRouteWithChildren
@@ -101,6 +107,7 @@ export interface FileRoutesByTo {
   '/blog/new': typeof BlogNewRoute
   '/portfolio/$id': typeof PortfolioIdRoute
   '/portfolio/new': typeof PortfolioNewRoute
+  '/blog': typeof BlogIndexRoute
   '/blog/preview/$id': typeof BlogPreviewIdRoute
 }
 export interface FileRoutesById {
@@ -115,6 +122,7 @@ export interface FileRoutesById {
   '/blog/new': typeof BlogNewRoute
   '/portfolio/$id': typeof PortfolioIdRoute
   '/portfolio/new': typeof PortfolioNewRoute
+  '/blog/': typeof BlogIndexRoute
   '/blog/preview/$id': typeof BlogPreviewIdRoute
 }
 export interface FileRouteTypes {
@@ -130,11 +138,11 @@ export interface FileRouteTypes {
     | '/blog/new'
     | '/portfolio/$id'
     | '/portfolio/new'
+    | '/blog/'
     | '/blog/preview/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/blog'
     | '/gallery'
     | '/media'
     | '/portfolio'
@@ -143,6 +151,7 @@ export interface FileRouteTypes {
     | '/blog/new'
     | '/portfolio/$id'
     | '/portfolio/new'
+    | '/blog'
     | '/blog/preview/$id'
   id:
     | '__root__'
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/blog/new'
     | '/portfolio/$id'
     | '/portfolio/new'
+    | '/blog/'
     | '/blog/preview/$id'
   fileRoutesById: FileRoutesById
 }
@@ -212,6 +222,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/': {
+      id: '/blog/'
+      path: '/'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof BlogRoute
+    }
     '/portfolio/new': {
       id: '/portfolio/new'
       path: '/new'
@@ -253,12 +270,14 @@ declare module '@tanstack/react-router' {
 interface BlogRouteChildren {
   BlogIdRoute: typeof BlogIdRoute
   BlogNewRoute: typeof BlogNewRoute
+  BlogIndexRoute: typeof BlogIndexRoute
   BlogPreviewIdRoute: typeof BlogPreviewIdRoute
 }
 
 const BlogRouteChildren: BlogRouteChildren = {
   BlogIdRoute: BlogIdRoute,
   BlogNewRoute: BlogNewRoute,
+  BlogIndexRoute: BlogIndexRoute,
   BlogPreviewIdRoute: BlogPreviewIdRoute,
 }
 
