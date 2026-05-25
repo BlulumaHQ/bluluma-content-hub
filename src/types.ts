@@ -21,6 +21,9 @@ export interface ContentItem {
   status: "draft" | "published" | "archived";
   is_featured: boolean;
   sort_order: number;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  publish_date?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -38,6 +41,29 @@ export interface PortfolioDetail {
 
 export interface PortfolioItem extends ContentItem {
   portfolio_details?: PortfolioDetail;
+}
+
+export interface Category {
+  id: string;
+  client_id: string | null;
+  category_type: string;
+  name: string;
+  slug: string | null;
+  sort_order?: number;
+  created_at?: string;
+}
+
+export interface Tag {
+  id: string;
+  client_id: string | null;
+  name: string;
+  slug: string | null;
+  created_at?: string;
+}
+
+export interface BlogPost extends ContentItem {
+  categories?: Category[];
+  tags?: Tag[];
 }
 
 export interface MediaAsset {
