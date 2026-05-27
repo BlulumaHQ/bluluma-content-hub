@@ -12,13 +12,22 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as MediaRouteImport } from './routes/media'
+import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as BlogRouteImport } from './routes/blog'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortfolioIndexRouteImport } from './routes/portfolio.index'
+import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
+import { Route as PortfolioTagsRouteImport } from './routes/portfolio.tags'
 import { Route as PortfolioNewRouteImport } from './routes/portfolio.new'
+import { Route as PortfolioCategoriesRouteImport } from './routes/portfolio.categories'
 import { Route as PortfolioIdRouteImport } from './routes/portfolio.$id'
+import { Route as ClientsNewRouteImport } from './routes/clients.new'
+import { Route as ClientsIdRouteImport } from './routes/clients.$id'
+import { Route as BlogTagsRouteImport } from './routes/blog.tags'
 import { Route as BlogNewRouteImport } from './routes/blog.new'
+import { Route as BlogImportRouteImport } from './routes/blog.import'
+import { Route as BlogCategoriesRouteImport } from './routes/blog.categories'
 import { Route as BlogIdRouteImport } from './routes/blog.$id'
 import { Route as BlogPreviewIdRouteImport } from './routes/blog.preview.$id'
 
@@ -37,6 +46,11 @@ const MediaRoute = MediaRouteImport.update({
   path: '/media',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClientsRoute = ClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlogRoute = BlogRouteImport.update({
   id: '/blog',
   path: '/blog',
@@ -52,14 +66,29 @@ const PortfolioIndexRoute = PortfolioIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PortfolioRoute,
 } as any)
+const ClientsIndexRoute = ClientsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ClientsRoute,
+} as any)
 const BlogIndexRoute = BlogIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => BlogRoute,
 } as any)
+const PortfolioTagsRoute = PortfolioTagsRouteImport.update({
+  id: '/tags',
+  path: '/tags',
+  getParentRoute: () => PortfolioRoute,
+} as any)
 const PortfolioNewRoute = PortfolioNewRouteImport.update({
   id: '/new',
   path: '/new',
+  getParentRoute: () => PortfolioRoute,
+} as any)
+const PortfolioCategoriesRoute = PortfolioCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
   getParentRoute: () => PortfolioRoute,
 } as any)
 const PortfolioIdRoute = PortfolioIdRouteImport.update({
@@ -67,9 +96,34 @@ const PortfolioIdRoute = PortfolioIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => PortfolioRoute,
 } as any)
+const ClientsNewRoute = ClientsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => ClientsRoute,
+} as any)
+const ClientsIdRoute = ClientsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ClientsRoute,
+} as any)
+const BlogTagsRoute = BlogTagsRouteImport.update({
+  id: '/tags',
+  path: '/tags',
+  getParentRoute: () => BlogRoute,
+} as any)
 const BlogNewRoute = BlogNewRouteImport.update({
   id: '/new',
   path: '/new',
+  getParentRoute: () => BlogRoute,
+} as any)
+const BlogImportRoute = BlogImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => BlogRoute,
+} as any)
+const BlogCategoriesRoute = BlogCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
   getParentRoute: () => BlogRoute,
 } as any)
 const BlogIdRoute = BlogIdRouteImport.update({
@@ -86,14 +140,23 @@ const BlogPreviewIdRoute = BlogPreviewIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/blog': typeof BlogRouteWithChildren
+  '/clients': typeof ClientsRouteWithChildren
   '/media': typeof MediaRoute
   '/portfolio': typeof PortfolioRouteWithChildren
   '/settings': typeof SettingsRoute
   '/blog/$id': typeof BlogIdRoute
+  '/blog/categories': typeof BlogCategoriesRoute
+  '/blog/import': typeof BlogImportRoute
   '/blog/new': typeof BlogNewRoute
+  '/blog/tags': typeof BlogTagsRoute
+  '/clients/$id': typeof ClientsIdRoute
+  '/clients/new': typeof ClientsNewRoute
   '/portfolio/$id': typeof PortfolioIdRoute
+  '/portfolio/categories': typeof PortfolioCategoriesRoute
   '/portfolio/new': typeof PortfolioNewRoute
+  '/portfolio/tags': typeof PortfolioTagsRoute
   '/blog/': typeof BlogIndexRoute
+  '/clients/': typeof ClientsIndexRoute
   '/portfolio/': typeof PortfolioIndexRoute
   '/blog/preview/$id': typeof BlogPreviewIdRoute
 }
@@ -102,10 +165,18 @@ export interface FileRoutesByTo {
   '/media': typeof MediaRoute
   '/settings': typeof SettingsRoute
   '/blog/$id': typeof BlogIdRoute
+  '/blog/categories': typeof BlogCategoriesRoute
+  '/blog/import': typeof BlogImportRoute
   '/blog/new': typeof BlogNewRoute
+  '/blog/tags': typeof BlogTagsRoute
+  '/clients/$id': typeof ClientsIdRoute
+  '/clients/new': typeof ClientsNewRoute
   '/portfolio/$id': typeof PortfolioIdRoute
+  '/portfolio/categories': typeof PortfolioCategoriesRoute
   '/portfolio/new': typeof PortfolioNewRoute
+  '/portfolio/tags': typeof PortfolioTagsRoute
   '/blog': typeof BlogIndexRoute
+  '/clients': typeof ClientsIndexRoute
   '/portfolio': typeof PortfolioIndexRoute
   '/blog/preview/$id': typeof BlogPreviewIdRoute
 }
@@ -113,14 +184,23 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/blog': typeof BlogRouteWithChildren
+  '/clients': typeof ClientsRouteWithChildren
   '/media': typeof MediaRoute
   '/portfolio': typeof PortfolioRouteWithChildren
   '/settings': typeof SettingsRoute
   '/blog/$id': typeof BlogIdRoute
+  '/blog/categories': typeof BlogCategoriesRoute
+  '/blog/import': typeof BlogImportRoute
   '/blog/new': typeof BlogNewRoute
+  '/blog/tags': typeof BlogTagsRoute
+  '/clients/$id': typeof ClientsIdRoute
+  '/clients/new': typeof ClientsNewRoute
   '/portfolio/$id': typeof PortfolioIdRoute
+  '/portfolio/categories': typeof PortfolioCategoriesRoute
   '/portfolio/new': typeof PortfolioNewRoute
+  '/portfolio/tags': typeof PortfolioTagsRoute
   '/blog/': typeof BlogIndexRoute
+  '/clients/': typeof ClientsIndexRoute
   '/portfolio/': typeof PortfolioIndexRoute
   '/blog/preview/$id': typeof BlogPreviewIdRoute
 }
@@ -129,14 +209,23 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/blog'
+    | '/clients'
     | '/media'
     | '/portfolio'
     | '/settings'
     | '/blog/$id'
+    | '/blog/categories'
+    | '/blog/import'
     | '/blog/new'
+    | '/blog/tags'
+    | '/clients/$id'
+    | '/clients/new'
     | '/portfolio/$id'
+    | '/portfolio/categories'
     | '/portfolio/new'
+    | '/portfolio/tags'
     | '/blog/'
+    | '/clients/'
     | '/portfolio/'
     | '/blog/preview/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -145,24 +234,41 @@ export interface FileRouteTypes {
     | '/media'
     | '/settings'
     | '/blog/$id'
+    | '/blog/categories'
+    | '/blog/import'
     | '/blog/new'
+    | '/blog/tags'
+    | '/clients/$id'
+    | '/clients/new'
     | '/portfolio/$id'
+    | '/portfolio/categories'
     | '/portfolio/new'
+    | '/portfolio/tags'
     | '/blog'
+    | '/clients'
     | '/portfolio'
     | '/blog/preview/$id'
   id:
     | '__root__'
     | '/'
     | '/blog'
+    | '/clients'
     | '/media'
     | '/portfolio'
     | '/settings'
     | '/blog/$id'
+    | '/blog/categories'
+    | '/blog/import'
     | '/blog/new'
+    | '/blog/tags'
+    | '/clients/$id'
+    | '/clients/new'
     | '/portfolio/$id'
+    | '/portfolio/categories'
     | '/portfolio/new'
+    | '/portfolio/tags'
     | '/blog/'
+    | '/clients/'
     | '/portfolio/'
     | '/blog/preview/$id'
   fileRoutesById: FileRoutesById
@@ -170,6 +276,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BlogRoute: typeof BlogRouteWithChildren
+  ClientsRoute: typeof ClientsRouteWithChildren
   MediaRoute: typeof MediaRoute
   PortfolioRoute: typeof PortfolioRouteWithChildren
   SettingsRoute: typeof SettingsRoute
@@ -198,6 +305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MediaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/clients': {
+      id: '/clients'
+      path: '/clients'
+      fullPath: '/clients'
+      preLoaderRoute: typeof ClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blog': {
       id: '/blog'
       path: '/blog'
@@ -219,6 +333,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortfolioIndexRouteImport
       parentRoute: typeof PortfolioRoute
     }
+    '/clients/': {
+      id: '/clients/'
+      path: '/'
+      fullPath: '/clients/'
+      preLoaderRoute: typeof ClientsIndexRouteImport
+      parentRoute: typeof ClientsRoute
+    }
     '/blog/': {
       id: '/blog/'
       path: '/'
@@ -226,11 +347,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogIndexRouteImport
       parentRoute: typeof BlogRoute
     }
+    '/portfolio/tags': {
+      id: '/portfolio/tags'
+      path: '/tags'
+      fullPath: '/portfolio/tags'
+      preLoaderRoute: typeof PortfolioTagsRouteImport
+      parentRoute: typeof PortfolioRoute
+    }
     '/portfolio/new': {
       id: '/portfolio/new'
       path: '/new'
       fullPath: '/portfolio/new'
       preLoaderRoute: typeof PortfolioNewRouteImport
+      parentRoute: typeof PortfolioRoute
+    }
+    '/portfolio/categories': {
+      id: '/portfolio/categories'
+      path: '/categories'
+      fullPath: '/portfolio/categories'
+      preLoaderRoute: typeof PortfolioCategoriesRouteImport
       parentRoute: typeof PortfolioRoute
     }
     '/portfolio/$id': {
@@ -240,11 +375,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortfolioIdRouteImport
       parentRoute: typeof PortfolioRoute
     }
+    '/clients/new': {
+      id: '/clients/new'
+      path: '/new'
+      fullPath: '/clients/new'
+      preLoaderRoute: typeof ClientsNewRouteImport
+      parentRoute: typeof ClientsRoute
+    }
+    '/clients/$id': {
+      id: '/clients/$id'
+      path: '/$id'
+      fullPath: '/clients/$id'
+      preLoaderRoute: typeof ClientsIdRouteImport
+      parentRoute: typeof ClientsRoute
+    }
+    '/blog/tags': {
+      id: '/blog/tags'
+      path: '/tags'
+      fullPath: '/blog/tags'
+      preLoaderRoute: typeof BlogTagsRouteImport
+      parentRoute: typeof BlogRoute
+    }
     '/blog/new': {
       id: '/blog/new'
       path: '/new'
       fullPath: '/blog/new'
       preLoaderRoute: typeof BlogNewRouteImport
+      parentRoute: typeof BlogRoute
+    }
+    '/blog/import': {
+      id: '/blog/import'
+      path: '/import'
+      fullPath: '/blog/import'
+      preLoaderRoute: typeof BlogImportRouteImport
+      parentRoute: typeof BlogRoute
+    }
+    '/blog/categories': {
+      id: '/blog/categories'
+      path: '/categories'
+      fullPath: '/blog/categories'
+      preLoaderRoute: typeof BlogCategoriesRouteImport
       parentRoute: typeof BlogRoute
     }
     '/blog/$id': {
@@ -266,29 +436,54 @@ declare module '@tanstack/react-router' {
 
 interface BlogRouteChildren {
   BlogIdRoute: typeof BlogIdRoute
+  BlogCategoriesRoute: typeof BlogCategoriesRoute
+  BlogImportRoute: typeof BlogImportRoute
   BlogNewRoute: typeof BlogNewRoute
+  BlogTagsRoute: typeof BlogTagsRoute
   BlogIndexRoute: typeof BlogIndexRoute
   BlogPreviewIdRoute: typeof BlogPreviewIdRoute
 }
 
 const BlogRouteChildren: BlogRouteChildren = {
   BlogIdRoute: BlogIdRoute,
+  BlogCategoriesRoute: BlogCategoriesRoute,
+  BlogImportRoute: BlogImportRoute,
   BlogNewRoute: BlogNewRoute,
+  BlogTagsRoute: BlogTagsRoute,
   BlogIndexRoute: BlogIndexRoute,
   BlogPreviewIdRoute: BlogPreviewIdRoute,
 }
 
 const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
 
+interface ClientsRouteChildren {
+  ClientsIdRoute: typeof ClientsIdRoute
+  ClientsNewRoute: typeof ClientsNewRoute
+  ClientsIndexRoute: typeof ClientsIndexRoute
+}
+
+const ClientsRouteChildren: ClientsRouteChildren = {
+  ClientsIdRoute: ClientsIdRoute,
+  ClientsNewRoute: ClientsNewRoute,
+  ClientsIndexRoute: ClientsIndexRoute,
+}
+
+const ClientsRouteWithChildren =
+  ClientsRoute._addFileChildren(ClientsRouteChildren)
+
 interface PortfolioRouteChildren {
   PortfolioIdRoute: typeof PortfolioIdRoute
+  PortfolioCategoriesRoute: typeof PortfolioCategoriesRoute
   PortfolioNewRoute: typeof PortfolioNewRoute
+  PortfolioTagsRoute: typeof PortfolioTagsRoute
   PortfolioIndexRoute: typeof PortfolioIndexRoute
 }
 
 const PortfolioRouteChildren: PortfolioRouteChildren = {
   PortfolioIdRoute: PortfolioIdRoute,
+  PortfolioCategoriesRoute: PortfolioCategoriesRoute,
   PortfolioNewRoute: PortfolioNewRoute,
+  PortfolioTagsRoute: PortfolioTagsRoute,
   PortfolioIndexRoute: PortfolioIndexRoute,
 }
 
@@ -299,6 +494,7 @@ const PortfolioRouteWithChildren = PortfolioRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BlogRoute: BlogRouteWithChildren,
+  ClientsRoute: ClientsRouteWithChildren,
   MediaRoute: MediaRoute,
   PortfolioRoute: PortfolioRouteWithChildren,
   SettingsRoute: SettingsRoute,
