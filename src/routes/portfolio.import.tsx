@@ -124,6 +124,19 @@ function BulkImportPage() {
   const [importing, setImporting] = useState(false);
   const [done, setDone] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const imagesInputRef = useRef<HTMLInputElement>(null);
+
+  const resetImportState = () => {
+    setCsvFile(null);
+    setImageFiles([]);
+    setRows([]);
+    setParseError(null);
+    setImporting(false);
+    setDone(false);
+    if (csvInputRef.current) csvInputRef.current.value = "";
+    if (imagesInputRef.current) imagesInputRef.current.value = "";
+  };
 
   const imageMap = useMemo(() => {
     const m = new Map<string, File>();
