@@ -523,6 +523,7 @@ function BulkImportPage() {
             <ImageIcon className="h-4 w-4" /> Images (multiple)
           </Label>
           <input
+            ref={imagesInputRef}
             type="file"
             accept="image/*"
             multiple
