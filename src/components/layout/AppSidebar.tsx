@@ -35,6 +35,7 @@ const nav: Group[] = [
     children: [
       { title: "All Portfolio", url: "/portfolio" },
       { title: "Add New Portfolio", url: "/portfolio/new" },
+      { title: "Bulk Import Portfolio", url: "/portfolio/import" },
       { title: "Portfolio Categories", url: "/portfolio/categories" },
       { title: "Portfolio Tags", url: "/portfolio/tags" },
     ],

@@ -20,6 +20,7 @@ import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as PortfolioTagsRouteImport } from './routes/portfolio.tags'
 import { Route as PortfolioNewRouteImport } from './routes/portfolio.new'
+import { Route as PortfolioImportRouteImport } from './routes/portfolio.import'
 import { Route as PortfolioCategoriesRouteImport } from './routes/portfolio.categories'
 import { Route as PortfolioIdRouteImport } from './routes/portfolio.$id'
 import { Route as ClientsNewRouteImport } from './routes/clients.new'
@@ -84,6 +85,11 @@ const PortfolioTagsRoute = PortfolioTagsRouteImport.update({
 const PortfolioNewRoute = PortfolioNewRouteImport.update({
   id: '/new',
   path: '/new',
+  getParentRoute: () => PortfolioRoute,
+} as any)
+const PortfolioImportRoute = PortfolioImportRouteImport.update({
+  id: '/import',
+  path: '/import',
   getParentRoute: () => PortfolioRoute,
 } as any)
 const PortfolioCategoriesRoute = PortfolioCategoriesRouteImport.update({
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/clients/new': typeof ClientsNewRoute
   '/portfolio/$id': typeof PortfolioIdRoute
   '/portfolio/categories': typeof PortfolioCategoriesRoute
+  '/portfolio/import': typeof PortfolioImportRoute
   '/portfolio/new': typeof PortfolioNewRoute
   '/portfolio/tags': typeof PortfolioTagsRoute
   '/blog/': typeof BlogIndexRoute
@@ -173,6 +180,7 @@ export interface FileRoutesByTo {
   '/clients/new': typeof ClientsNewRoute
   '/portfolio/$id': typeof PortfolioIdRoute
   '/portfolio/categories': typeof PortfolioCategoriesRoute
+  '/portfolio/import': typeof PortfolioImportRoute
   '/portfolio/new': typeof PortfolioNewRoute
   '/portfolio/tags': typeof PortfolioTagsRoute
   '/blog': typeof BlogIndexRoute
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   '/clients/new': typeof ClientsNewRoute
   '/portfolio/$id': typeof PortfolioIdRoute
   '/portfolio/categories': typeof PortfolioCategoriesRoute
+  '/portfolio/import': typeof PortfolioImportRoute
   '/portfolio/new': typeof PortfolioNewRoute
   '/portfolio/tags': typeof PortfolioTagsRoute
   '/blog/': typeof BlogIndexRoute
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
     | '/clients/new'
     | '/portfolio/$id'
     | '/portfolio/categories'
+    | '/portfolio/import'
     | '/portfolio/new'
     | '/portfolio/tags'
     | '/blog/'
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/clients/new'
     | '/portfolio/$id'
     | '/portfolio/categories'
+    | '/portfolio/import'
     | '/portfolio/new'
     | '/portfolio/tags'
     | '/blog'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/clients/new'
     | '/portfolio/$id'
     | '/portfolio/categories'
+    | '/portfolio/import'
     | '/portfolio/new'
     | '/portfolio/tags'
     | '/blog/'
@@ -359,6 +371,13 @@ declare module '@tanstack/react-router' {
       path: '/new'
       fullPath: '/portfolio/new'
       preLoaderRoute: typeof PortfolioNewRouteImport
+      parentRoute: typeof PortfolioRoute
+    }
+    '/portfolio/import': {
+      id: '/portfolio/import'
+      path: '/import'
+      fullPath: '/portfolio/import'
+      preLoaderRoute: typeof PortfolioImportRouteImport
       parentRoute: typeof PortfolioRoute
     }
     '/portfolio/categories': {
@@ -474,6 +493,7 @@ const ClientsRouteWithChildren =
 interface PortfolioRouteChildren {
   PortfolioIdRoute: typeof PortfolioIdRoute
   PortfolioCategoriesRoute: typeof PortfolioCategoriesRoute
+  PortfolioImportRoute: typeof PortfolioImportRoute
   PortfolioNewRoute: typeof PortfolioNewRoute
   PortfolioTagsRoute: typeof PortfolioTagsRoute
   PortfolioIndexRoute: typeof PortfolioIndexRoute
@@ -482,6 +502,7 @@ interface PortfolioRouteChildren {
 const PortfolioRouteChildren: PortfolioRouteChildren = {
   PortfolioIdRoute: PortfolioIdRoute,
   PortfolioCategoriesRoute: PortfolioCategoriesRoute,
+  PortfolioImportRoute: PortfolioImportRoute,
   PortfolioNewRoute: PortfolioNewRoute,
   PortfolioTagsRoute: PortfolioTagsRoute,
   PortfolioIndexRoute: PortfolioIndexRoute,
@@ -502,13 +523,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
