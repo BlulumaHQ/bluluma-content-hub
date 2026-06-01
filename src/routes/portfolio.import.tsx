@@ -256,8 +256,13 @@ function BulkImportPage() {
       toast.error("Select a client first");
       return;
     }
-    if (rows.length === 0) {
-      toast.error("Upload a CSV first");
+    if (!csvFile || rows.length === 0) {
+      toast.error("Please upload a CSV file.");
+      return;
+    }
+    const needImages = rows.some((r) => r.image_file);
+    if (needImages && imageFiles.length === 0) {
+      toast.error("Please upload image files.");
       return;
     }
     setImporting(true);
