@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 
 interface PortfolioCardProps {
@@ -21,6 +22,8 @@ interface PortfolioCardProps {
   client: Client;
   onDelete: (id: string) => void;
   onEdited: () => void;
+  selected?: boolean;
+  onToggleSelect?: (id: string, next: boolean) => void;
 }
 
 export function PortfolioCard({ item, client, onDelete, onEdited }: PortfolioCardProps) {
