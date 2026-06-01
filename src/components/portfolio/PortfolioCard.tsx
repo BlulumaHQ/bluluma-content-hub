@@ -26,7 +26,7 @@ interface PortfolioCardProps {
   onToggleSelect?: (id: string, next: boolean) => void;
 }
 
-export function PortfolioCard({ item, client, onDelete, onEdited }: PortfolioCardProps) {
+export function PortfolioCard({ item, client, onDelete, onEdited, selected, onToggleSelect }: PortfolioCardProps) {
   const details = item.portfolio_details;
   const services = details?.services ?? [];
   const [editOpen, setEditOpen] = useState(false);
