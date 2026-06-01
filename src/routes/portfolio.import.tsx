@@ -501,6 +501,7 @@ function BulkImportPage() {
             <FileText className="h-4 w-4" /> CSV File
           </Label>
           <input
+            ref={csvInputRef}
             type="file"
             accept=".csv,text/csv"
             onChange={handleCsvChange}
