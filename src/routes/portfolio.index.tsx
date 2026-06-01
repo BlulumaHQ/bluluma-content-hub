@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -112,12 +112,20 @@ function PortfolioPage() {
             Manage portfolio items for {selectedClient.client_name}
           </p>
         </div>
-        <Link to="/portfolio/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add New Portfolio
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/portfolio/import">
+            <Button variant="outline">
+              <Upload className="mr-2 h-4 w-4" />
+              Bulk Import / Export
+            </Button>
+          </Link>
+          <Link to="/portfolio/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add New Portfolio
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {isLoading ? (
