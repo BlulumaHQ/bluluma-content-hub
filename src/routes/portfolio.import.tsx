@@ -630,6 +630,15 @@ function BulkImportPage() {
                 ))}
             </ul>
           )}
+          <div className="mt-4 flex gap-2">
+            <Button variant="outline" onClick={resetImportState}>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Import Another CSV
+            </Button>
+            <Link to="/portfolio">
+              <Button>View All Portfolio</Button>
+            </Link>
+          </div>
         </div>
       )}
     </div>
