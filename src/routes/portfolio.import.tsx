@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Upload, FileText, Image as ImageIcon, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Upload, FileText, Image as ImageIcon, Loader2, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 
 import { useClientContext } from "@/contexts/ClientContext";
 import { supabase } from "@/lib/supabase";
