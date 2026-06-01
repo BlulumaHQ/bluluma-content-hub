@@ -92,11 +92,6 @@ const PortfolioImportRoute = PortfolioImportRouteImport.update({
   path: '/import',
   getParentRoute: () => PortfolioRoute,
 } as any)
-const PortfolioImportRoute = PortfolioImportRouteImport.update({
-  id: '/import',
-  path: '/import',
-  getParentRoute: () => PortfolioRoute,
-} as any)
 const PortfolioCategoriesRoute = PortfolioCategoriesRouteImport.update({
   id: '/categories',
   path: '/categories',
