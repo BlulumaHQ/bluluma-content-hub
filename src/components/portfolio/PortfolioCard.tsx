@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 
 interface PortfolioCardProps {
@@ -21,9 +22,11 @@ interface PortfolioCardProps {
   client: Client;
   onDelete: (id: string) => void;
   onEdited: () => void;
+  selected?: boolean;
+  onToggleSelect?: (id: string, next: boolean) => void;
 }
 
-export function PortfolioCard({ item, client, onDelete, onEdited }: PortfolioCardProps) {
+export function PortfolioCard({ item, client, onDelete, onEdited, selected, onToggleSelect }: PortfolioCardProps) {
   const details = item.portfolio_details;
   const services = details?.services ?? [];
   const [editOpen, setEditOpen] = useState(false);
@@ -138,7 +141,16 @@ export function PortfolioCard({ item, client, onDelete, onEdited }: PortfolioCar
   };
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-lg border bg-card transition-shadow hover:shadow-md">
+    <div className={`group relative flex flex-col overflow-hidden rounded-lg border bg-card transition-shadow hover:shadow-md ${selected ? "ring-2 ring-primary" : ""}`}>
+      {onToggleSelect && (
+        <div className="absolute left-2 top-2 z-10 rounded-md bg-background/90 p-1 shadow">
+          <Checkbox
+            checked={!!selected}
+            onCheckedChange={(v) => onToggleSelect(item.id, v === true)}
+            aria-label="Select portfolio"
+          />
+        </div>
+      )}
       <div className="aspect-video overflow-hidden bg-muted">
         {item.featured_image_url ? (
           <img

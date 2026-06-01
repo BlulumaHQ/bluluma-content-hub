@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Upload, FileText, Image as ImageIcon, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Upload, FileText, Image as ImageIcon, Loader2, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
 
 import { useClientContext } from "@/contexts/ClientContext";
 import { supabase } from "@/lib/supabase";
@@ -124,6 +124,19 @@ function BulkImportPage() {
   const [importing, setImporting] = useState(false);
   const [done, setDone] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const imagesInputRef = useRef<HTMLInputElement>(null);
+
+  const resetImportState = () => {
+    setCsvFile(null);
+    setImageFiles([]);
+    setRows([]);
+    setParseError(null);
+    setImporting(false);
+    setDone(false);
+    if (csvInputRef.current) csvInputRef.current.value = "";
+    if (imagesInputRef.current) imagesInputRef.current.value = "";
+  };
 
   const imageMap = useMemo(() => {
     const m = new Map<string, File>();
@@ -243,8 +256,13 @@ function BulkImportPage() {
       toast.error("Select a client first");
       return;
     }
-    if (rows.length === 0) {
-      toast.error("Upload a CSV first");
+    if (!csvFile || rows.length === 0) {
+      toast.error("Please upload a CSV file.");
+      return;
+    }
+    const needImages = rows.some((r) => r.image_file);
+    if (needImages && imageFiles.length === 0) {
+      toast.error("Please upload image files.");
       return;
     }
     setImporting(true);
@@ -458,6 +476,10 @@ function BulkImportPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={resetImportState} disabled={importing}>
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Clear
+          </Button>
           <Button variant="outline" onClick={downloadTemplate}>
             <FileText className="mr-2 h-4 w-4" />
             CSV Template
@@ -479,6 +501,7 @@ function BulkImportPage() {
             <FileText className="h-4 w-4" /> CSV File
           </Label>
           <input
+            ref={csvInputRef}
             type="file"
             accept=".csv,text/csv"
             onChange={handleCsvChange}
@@ -500,6 +523,7 @@ function BulkImportPage() {
             <ImageIcon className="h-4 w-4" /> Images (multiple)
           </Label>
           <input
+            ref={imagesInputRef}
             type="file"
             accept="image/*"
             multiple
@@ -606,6 +630,15 @@ function BulkImportPage() {
                 ))}
             </ul>
           )}
+          <div className="mt-4 flex gap-2">
+            <Button variant="outline" onClick={resetImportState}>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Import Another CSV
+            </Button>
+            <Link to="/portfolio">
+              <Button>View All Portfolio</Button>
+            </Link>
+          </div>
         </div>
       )}
     </div>
