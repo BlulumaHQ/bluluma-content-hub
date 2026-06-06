@@ -51,23 +51,36 @@ function NewClientPage() {
       return;
     }
     setSaving(true);
+
+    const basePayload: Record<string, unknown> = {
+      client_name: name.trim(),
+      website_url: websiteUrl.trim() || null,
+      industry: industry.trim() || null,
+      brand_primary_color: brandColor || null,
+      status,
+    };
+    const slugValue = slug.trim() || slugify(name);
+
+    const attemptInsert = async (payload: Record<string, unknown>) =>
+      supabase.from("clients").insert(payload).select("*").single();
+
     try {
-      const payload: Record<string, unknown> = {
-        client_name: name.trim(),
-        slug: slug.trim() || slugify(name),
-        website_url: websiteUrl.trim() || null,
-        industry: industry.trim() || null,
-        brand_primary_color: brandColor || null,
-        status,
-      };
+      // Try with slug first; gracefully retry without it if the column doesn't exist.
+      let { data, error } = await attemptInsert({ ...basePayload, slug: slugValue });
 
-      const { data, error } = await supabase
-        .from("clients")
-        .insert(payload)
-        .select("*")
-        .single();
+      if (error && /slug/i.test(error.message) && error.code === "PGRST204") {
+        console.warn("[clients] 'slug' column missing — retrying without it.", error);
+        toast.message("Note: 'slug' column missing in database — saving without slug.");
+        ({ data, error } = await attemptInsert(basePayload));
+      }
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase insert error:", error);
+        toast.error(
+          `Create client failed: ${error.message}${error.hint ? ` — ${error.hint}` : ""}`,
+        );
+        return;
+      }
 
       await refreshClients();
       setSelectedClient(data);
@@ -75,7 +88,7 @@ function NewClientPage() {
       toast.success(`Client "${data.client_name}" created`);
       navigate({ to: "/" });
     } catch (err) {
-      console.error(err);
+      console.error("Unexpected error creating client:", err);
       toast.error(err instanceof Error ? err.message : "Failed to create client");
     } finally {
       setSaving(false);
