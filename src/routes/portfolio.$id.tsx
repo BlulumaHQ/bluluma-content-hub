@@ -6,6 +6,7 @@ import { useClientContext } from "@/contexts/ClientContext";
 import { supabase } from "@/lib/supabase";
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 import { GalleryManager } from "@/components/portfolio/GalleryManager";
+import { CategoryTagPanel } from "@/components/portfolio/CategoryTagPanel";
 import type { ContentItem, PortfolioDetail, PortfolioItem } from "@/types";
 
 export const Route = createFileRoute("/portfolio/$id")({
