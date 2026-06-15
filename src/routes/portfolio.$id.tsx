@@ -136,6 +136,10 @@ function EditPortfolioPage() {
       <div className="mt-8">
         <GalleryManager contentId={id} clientId={selectedClient.id} />
       </div>
+
+      <div className="mt-8">
+        <CategoryTagPanel contentId={id} clientId={selectedClient.id} />
+      </div>
     </div>
   );
 }
