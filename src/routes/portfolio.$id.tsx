@@ -133,12 +133,14 @@ function EditPortfolioPage() {
         <PortfolioForm client={selectedClient} initialData={item} onSave={handleSave} />
       </div>
 
-      <div className="mt-8">
-        <GalleryManager contentId={id} clientId={selectedClient.id} />
+      {/* Gallery management: view all photos, drag to reorder, set featured, add/delete */}
+      <div className="mt-6 max-w-3xl">
+        <GalleryManager contentId={item.id} clientId={selectedClient.id} />
       </div>
 
-      <div className="mt-8">
-        <CategoryTagPanel contentId={id} clientId={selectedClient.id} />
+      {/* Category + tag assignment */}
+      <div className="mt-6 max-w-3xl">
+        <CategoryTagPanel contentId={item.id} clientId={selectedClient.id} />
       </div>
     </div>
   );
