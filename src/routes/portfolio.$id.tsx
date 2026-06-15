@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useClientContext } from "@/contexts/ClientContext";
 import { supabase } from "@/lib/supabase";
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
+import { GalleryManager } from "@/components/portfolio/GalleryManager";
 import type { ContentItem, PortfolioDetail, PortfolioItem } from "@/types";
 
 export const Route = createFileRoute("/portfolio/$id")({
@@ -129,6 +130,10 @@ function EditPortfolioPage() {
 
       <div className="mt-6">
         <PortfolioForm client={selectedClient} initialData={item} onSave={handleSave} />
+      </div>
+
+      <div className="mt-8">
+        <GalleryManager contentId={id} clientId={selectedClient.id} />
       </div>
     </div>
   );
