@@ -1,6 +1,7 @@
-import { Link } from "@tanstack/react-router";
-import { AlertTriangle } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { AlertTriangle, LogOut } from "lucide-react";
 import { useClientContext } from "@/contexts/ClientContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Select,
   SelectContent,
@@ -12,6 +13,13 @@ import { Button } from "@/components/ui/button";
 
 export function TopBar() {
   const { clients, selectedClient, setSelectedClient, isLoading } = useClientContext();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate({ to: "/login", replace: true });
+  };
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-card px-6">
