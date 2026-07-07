@@ -126,18 +126,56 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ClientProvider>
-        <div className="flex h-screen w-full overflow-hidden">
-          <AppSidebar />
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <TopBar />
-            <main className="flex-1 overflow-auto bg-background p-6">
-              <Outlet />
-            </main>
-          </div>
-        </div>
+      <AuthProvider>
+        <AuthGate>
+          <ClientProvider>
+            <div className="flex h-screen w-full overflow-hidden">
+              <AppSidebar />
+              <div className="flex flex-1 flex-col overflow-hidden">
+                <TopBar />
+                <main className="flex-1 overflow-auto bg-background p-6">
+                  <Outlet />
+                </main>
+              </div>
+            </div>
+          </ClientProvider>
+        </AuthGate>
         <Toaster position="top-right" />
-      </ClientProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
+}
+
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { session, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const href = useRouterState({ select: (s) => s.location.href });
+  const isLoginRoute = pathname === "/login";
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!session && !isLoginRoute) {
+      navigate({
+        to: "/login",
+        search: { redirect: href },
+        replace: true,
+      });
+    }
+  }, [isLoading, session, isLoginRoute, href, navigate]);
+
+  if (isLoginRoute) {
+    // Login page renders its own full-screen layout, bypass chrome
+    return <Outlet />;
+  }
+
+  if (isLoading || !session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }
