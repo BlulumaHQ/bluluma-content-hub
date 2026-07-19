@@ -143,7 +143,7 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
   return (
     <div className={`group relative flex flex-col overflow-hidden rounded-lg border bg-card transition-shadow hover:shadow-md ${selected ? "ring-2 ring-primary" : ""}`}>
       {onToggleSelect && (
-        <div className="absolute left-2 top-2 z-10 rounded-md bg-background/90 p-1 shadow">
+        <div className="absolute right-2 top-2 z-10 rounded-md bg-background/90 p-1 shadow">
           <Checkbox
             checked={!!selected}
             onCheckedChange={(v) => onToggleSelect(item.id, v === true)}

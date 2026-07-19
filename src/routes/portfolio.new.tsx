@@ -41,6 +41,19 @@ function NewPortfolioPage() {
     project_year: number | "";
     short_summary: string;
   }) => {
+    // Compute next sort_order for this client so new items go to the end.
+    let nextSort = data.sort_order && data.sort_order > 0 ? data.sort_order : 1;
+    if (!data.sort_order || data.sort_order <= 0) {
+      const { data: maxRow } = await supabase
+        .from("content_items")
+        .select("sort_order")
+        .eq("client_id", selectedClient.id)
+        .eq("content_type", "portfolio")
+        .order("sort_order", { ascending: false, nullsFirst: false })
+        .limit(1);
+      nextSort = (maxRow?.[0]?.sort_order ?? 0) + 1;
+    }
+
     const { data: contentData, error: contentError } = await supabase
       .from("content_items")
       .insert({
@@ -53,7 +66,7 @@ function NewPortfolioPage() {
         featured_image_url: data.featured_image_url || null,
         status: data.status,
         is_featured: data.is_featured,
-        sort_order: data.sort_order,
+        sort_order: nextSort,
       })
       .select()
       .single();
