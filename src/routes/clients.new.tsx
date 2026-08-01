@@ -128,6 +128,17 @@ function NewClientPage() {
         </div>
 
         <div>
+          <Label htmlFor="name_zh">公司名稱 (ZH)</Label>
+          <Input
+            id="name_zh"
+            value={nameZh}
+            onChange={(e) => setNameZh(e.target.value)}
+            className="mt-1"
+          />
+        </div>
+
+
+        <div>
           <Label htmlFor="slug">Slug</Label>
           <Input
             id="slug"
