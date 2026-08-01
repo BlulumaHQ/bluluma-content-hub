@@ -61,7 +61,8 @@ export function GalleryManager({ contentId, clientId, onFeaturedChange }: Galler
     setLoading(true);
     const { data, error } = await supabase
       .from("media_assets")
-      .select("id, file_url, is_featured, sort_order")
+      .select("id, file_url, is_featured, sort_order, original_filename, width_px, height_px")
+
       .eq("content_id", contentId)
       .order("sort_order", { ascending: true });
     if (error) toast.error(error.message);
@@ -162,6 +163,7 @@ export function GalleryManager({ contentId, clientId, onFeaturedChange }: Galler
         if (upErr) throw upErr;
         const { data: pub } = supabase.storage.from("content-images").getPublicUrl(path);
         const isFeatured = !hasFeatured && newRows.length === 0;
+        const { width, height } = await readImageSize(file);
         const { data: inserted, error: insErr } = await supabase
           .from("media_assets")
           .insert({
@@ -169,11 +171,15 @@ export function GalleryManager({ contentId, clientId, onFeaturedChange }: Galler
             content_id: contentId,
             file_url: pub.publicUrl,
             file_type: file.type || `image/${ext}`,
+            original_filename: file.name,
+            width_px: width,
+            height_px: height,
             is_featured: isFeatured,
             sort_order: order++,
           })
-          .select("id, file_url, is_featured, sort_order")
+          .select("id, file_url, is_featured, sort_order, original_filename, width_px, height_px")
           .single();
+
         if (insErr) throw insErr;
         newRows.push(inserted as Asset);
       }
