@@ -31,13 +31,23 @@ function NewClientPage() {
   const { setSelectedClient, refreshClients } = useClientContext();
 
   const [name, setName] = useState("");
+  const [nameZh, setNameZh] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
   const [industry, setIndustry] = useState("");
   const [brandColor, setBrandColor] = useState("#6366f1");
+  const [defaultLocale, setDefaultLocale] = useState("en");
+  const [locales, setLocales] = useState<string[]>(["en"]);
   const [status, setStatus] = useState("active");
   const [saving, setSaving] = useState(false);
+
+  const toggleLocale = (code: string) => {
+    setLocales((prev) =>
+      prev.includes(code) ? prev.filter((l) => l !== code) : [...prev, code],
+    );
+  };
 
   const handleNameChange = (v: string) => {
     setName(v);
@@ -52,27 +62,27 @@ function NewClientPage() {
     }
     setSaving(true);
 
-    const basePayload: Record<string, unknown> = {
+    const supported = locales.includes(defaultLocale) ? locales : [defaultLocale, ...locales];
+
+    const payload: Record<string, unknown> = {
       client_name: name.trim(),
+      company_name_zh: nameZh.trim() || null,
+      slug: slug.trim() || slugify(name),
       website_url: websiteUrl.trim() || null,
+      logo_url: logoUrl.trim() || null,
       industry: industry.trim() || null,
       brand_primary_color: brandColor || null,
+      default_locale: defaultLocale,
+      supported_locales: supported,
       status,
     };
-    const slugValue = slug.trim() || slugify(name);
-
-    const attemptInsert = async (payload: Record<string, unknown>) =>
-      supabase.from("clients").insert(payload).select("*").single();
 
     try {
-      // Try with slug first; gracefully retry without it if the column doesn't exist.
-      let { data, error } = await attemptInsert({ ...basePayload, slug: slugValue });
-
-      if (error && /slug/i.test(error.message) && error.code === "PGRST204") {
-        console.warn("[clients] 'slug' column missing — retrying without it.", error);
-        toast.message("Note: 'slug' column missing in database — saving without slug.");
-        ({ data, error } = await attemptInsert(basePayload));
-      }
+      const { data, error } = await supabase
+        .from("clients")
+        .insert(payload)
+        .select("*")
+        .single();
 
       if (error) {
         console.error("Supabase insert error:", error);
@@ -94,6 +104,7 @@ function NewClientPage() {
       setSaving(false);
     }
   };
+
 
   return (
     <div className="mx-auto max-w-2xl">
