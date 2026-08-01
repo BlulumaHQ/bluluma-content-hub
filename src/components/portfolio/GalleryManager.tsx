@@ -243,11 +243,21 @@ export function GalleryManager({ contentId, clientId, onFeaturedChange }: Galler
               onDragOver={(e) => onDragOver(e, i)}
               onDragEnd={persistOrder}
               onDrop={persistOrder}
+              title={[a.original_filename, a.width_px && a.height_px ? `${a.width_px}×${a.height_px}` : null]
+                .filter(Boolean)
+                .join(" · ")}
               className={`group relative aspect-[4/3] overflow-hidden rounded-md border bg-muted ${
                 a.is_featured ? "ring-2 ring-primary" : ""
               }`}
             >
-              <img src={a.file_url} alt="" className="h-full w-full object-cover" draggable={false} />
+              <img src={a.file_url} alt={a.original_filename ?? ""} className="h-full w-full object-cover" draggable={false} />
+              {(a.original_filename || a.width_px) && (
+                <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 py-0.5 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                  {a.original_filename ?? ""}
+                  {a.width_px && a.height_px ? ` · ${a.width_px}×${a.height_px}` : ""}
+                </span>
+              )}
+
 
               {/* drag handle */}
               <div className="absolute left-1 top-1 rounded bg-black/50 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100">
