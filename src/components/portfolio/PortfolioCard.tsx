@@ -3,7 +3,8 @@ import { ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { PortfolioItem, Client } from "@/types";
-import { supabase } from "@/lib/supabase";
+import { updatePortfolio, type PortfolioFormData } from "@/lib/portfolio";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,114 +32,19 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
   const services = details?.services ?? [];
   const [editOpen, setEditOpen] = useState(false);
 
-  const handleSave = async (data: {
-    title: string;
-    slug: string;
-    excerpt: string;
-    body_content: string;
-    featured_image_url: string;
-    status: "draft" | "published" | "archived";
-    is_featured: boolean;
-    sort_order: number;
-    live_url: string;
-    services: string[];
-    project_year: number | "";
-    short_summary: string;
-  }) => {
+  const handleSave = async (data: PortfolioFormData) => {
     try {
-      const sortOrderNum =
-        typeof data.sort_order === "number" && !Number.isNaN(data.sort_order)
-          ? data.sort_order
-          : parseInt(String(data.sort_order ?? "0"), 10) || 0;
-
-      const contentPayload = {
-        title: data.title,
-        slug: data.slug,
-        excerpt: data.excerpt || null,
-        body_content: data.body_content || null,
-        featured_image_url: data.featured_image_url || null,
-        status: data.status,
-        is_featured: data.is_featured,
-        sort_order: sortOrderNum,
-        updated_at: new Date().toISOString(),
-      };
-      console.log("[PortfolioCard] updating content_items", item.id, contentPayload);
-
-      const { error: contentError, status: contentStatus } = await supabase
-        .from("content_items")
-        .update(contentPayload)
-        .eq("id", item.id)
-        .eq("client_id", client.id);
-
-      if (contentError) {
-        console.error("[PortfolioCard] content_items update error", {
-          status: contentStatus,
-          ...contentError,
-        });
-        throw new Error(contentError.message || "Failed to update content_items");
-      }
-
-      const servicesArr = Array.isArray(data.services)
-        ? data.services.map((s) => String(s).trim()).filter(Boolean)
-        : [];
-
-      const detailsPayload = {
-        live_url: data.live_url ? data.live_url.trim() : null,
-        services: servicesArr,
-        client_name: data.title,
-        project_year:
-          data.project_year === "" || data.project_year === null || data.project_year === undefined
-            ? null
-            : String(data.project_year),
-        short_summary: data.short_summary ? data.short_summary.trim() : null,
-      };
-      console.log("[PortfolioCard] saving portfolio_details", item.id, detailsPayload);
-
-      const { data: existing, error: fetchError } = await supabase
-        .from("portfolio_details")
-        .select("id")
-        .eq("content_id", item.id)
-        .maybeSingle();
-
-      if (fetchError) {
-        console.error("[PortfolioCard] portfolio_details fetch error", fetchError);
-        throw new Error(fetchError.message || "Failed to fetch portfolio_details");
-      }
-
-      if (existing) {
-        const { error: updateError } = await supabase
-          .from("portfolio_details")
-          .update(detailsPayload)
-          .eq("content_id", item.id);
-        if (updateError) {
-          console.error("[PortfolioCard] portfolio_details update error", updateError);
-          throw new Error(updateError.message || "Failed to update portfolio_details");
-        }
-      } else {
-        const { error: insertError } = await supabase
-          .from("portfolio_details")
-          .insert({ ...detailsPayload, content_id: item.id });
-        if (insertError) {
-          console.error("[PortfolioCard] portfolio_details insert error", insertError);
-          throw new Error(insertError.message || "Failed to insert portfolio_details");
-        }
-      }
-
+      await updatePortfolio(item.id, client.id, data);
       toast.success("Portfolio saved successfully");
       setEditOpen(false);
       onEdited();
     } catch (err) {
       console.error("[PortfolioCard] save failed", err);
-      const message =
-        err instanceof Error
-          ? err.message
-          : typeof err === "object" && err !== null && "message" in err
-          ? String((err as { message: unknown }).message)
-          : "Failed to save";
-      toast.error(message);
+      toast.error(err instanceof Error ? err.message : "Failed to save");
       throw err;
     }
   };
+
 
   return (
     <div className={`group relative flex flex-col overflow-hidden rounded-lg border bg-card transition-shadow hover:shadow-md ${selected ? "ring-2 ring-primary" : ""}`}>

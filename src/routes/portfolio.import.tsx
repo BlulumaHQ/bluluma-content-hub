@@ -2,12 +2,21 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Upload, FileText, Image as ImageIcon, Loader2, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
+import {
+  Upload,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
+} from "lucide-react";
 
 import { useClientContext } from "@/contexts/ClientContext";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -16,62 +25,69 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  createPortfolio,
+  emptyPortfolioForm,
+  type PortfolioFormData,
+} from "@/lib/portfolio";
 
 export const Route = createFileRoute("/portfolio/import")({
   head: () => ({
     meta: [
       { title: "Bulk Import Portfolio — Bluluma CMS Admin" },
-      { name: "description", content: "Bulk import portfolio items + galleries via CSV" },
+      { name: "description", content: "Bulk import portfolio projects + galleries via CSV" },
     ],
   }),
   component: BulkImportPage,
 });
 
-interface CsvRow {
-  title: string;
-  category: string;
-  location: string;
-  role: string;
-  services: string; // raw, ";"-separated within the cell
-  website_url: string;
-  description: string;
-  image_prefix: string; // gallery: collects {prefix}_feature + {prefix}_NN
-  image_file: string; // single-image fallback (backward compatible)
-}
+/** Every CSV column the importer understands. `title` is the only required one. */
+const CSV_COLUMNS = [
+  "title", "title_zh", "slug", "excerpt", "excerpt_zh", "body_content", "body_content_zh",
+  "status", "is_featured", "sort_order",
+  "category", "category_zh", "tag_1", "tag_1_zh", "tag_2", "tag_2_zh",
+  "city", "province", "country", "location", "role",
+  "project_status", "year_started", "year_completed", "project_year",
+  "floor_area_value", "floor_area_unit", "site_area_value", "site_area_unit",
+  "units_count", "storeys_count", "parking_spaces", "construction_budget",
+  "scope_of_work", "scope_of_work_zh", "key_features", "key_features_zh",
+  "services", "live_url",
+  "design_architect", "architect_of_record", "interior_designer", "landscape_architect",
+  "structural_engineer", "mechanical_engineer", "electrical_engineer", "civil_engineer",
+  "other_consultants", "general_contractor", "developer_owner_client", "photographer",
+  "other_credits", "awards", "publications",
+  "original_website_content", "internal_notes", "image_prefix", "expected_gallery_count",
+  "seo_title", "seo_title_zh", "seo_description", "seo_description_zh",
+  "image_file",
+] as const;
 
-interface RowState extends CsvRow {
+type CsvKey = (typeof CSV_COLUMNS)[number];
+type CsvRow = Record<CsvKey, string>;
+
+interface RowState {
+  data: CsvRow;
   featuredName: string | null;
   galleryNames: string[];
   imageCount: number;
   error?: string;
-  status: "pending" | "success" | "failed";
+  status: "pending" | "importing" | "success" | "failed";
 }
 
 function slugify(s: string) {
   return s
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/[^a-z0-9\u4e00-\u9fff\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
 }
 
-function escapeRegExp(s: string) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const stripExt = (n: string) => (n.lastIndexOf(".") >= 0 ? n.slice(0, n.lastIndexOf(".")) : n);
+const extOf = (n: string) =>
+  n.lastIndexOf(".") >= 0 ? n.slice(n.lastIndexOf(".") + 1).toLowerCase() : "";
 
-function stripExt(name: string) {
-  const i = name.lastIndexOf(".");
-  return i >= 0 ? name.slice(0, i) : name;
-}
-
-function extOf(name: string) {
-  const i = name.lastIndexOf(".");
-  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
-}
-
-// Prefer webp > jpg/jpeg > png > anything else when the same basename
-// exists in multiple formats. Lets the user select both .jpg and .webp.
+/** webp > jpg/jpeg > png > others when the same basename exists multiple times. */
 function dedupePreferWebp(files: File[]): File[] {
   const rank = (name: string) => {
     const e = extOf(name);
@@ -90,15 +106,17 @@ function dedupePreferWebp(files: File[]): File[] {
   return [...byBase.values()];
 }
 
-// Resolve the featured image + ordered gallery for a row from the deduped files.
-function resolveImages(
-  row: CsvRow,
-  deduped: File[],
-): { featured: File | null; gallery: File[] } {
-  if (row.image_prefix) {
-    const p = row.image_prefix.toLowerCase();
-    const featureRe = new RegExp(`^${escapeRegExp(p)}_feature$`);
-    const numberRe = new RegExp(`^${escapeRegExp(p)}_(\\d+)$`);
+/**
+ * Architect57 image rules for a given prefix P:
+ *   P_feature / P_hero  → featured image
+ *   P_01 … P_NN         → gallery in numeric order
+ *   P                   → fallback featured
+ */
+function resolveImages(row: CsvRow, deduped: File[]): { featured: File | null; gallery: File[] } {
+  const prefix = row.image_prefix?.trim().toLowerCase();
+  if (prefix) {
+    const featureRe = new RegExp(`^${escapeRegExp(prefix)}[_-](feature|featured|hero|main)$`);
+    const numberRe = new RegExp(`^${escapeRegExp(prefix)}[_-](\\d+)$`);
     let featured: File | null = null;
     let exact: File | null = null;
     const numbered: { n: number; f: File }[] = [];
@@ -108,7 +126,7 @@ function resolveImages(
         featured = f;
         continue;
       }
-      if (base === p) {
+      if (base === prefix) {
         exact = f;
         continue;
       }
@@ -131,16 +149,31 @@ function resolveImages(
   return { featured: null, gallery: [] };
 }
 
-function parseServices(raw: string): string[] | null {
-  if (!raw) return null;
-  const arr = raw
-    .split(";")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return arr.length ? arr : null;
+function readImageSize(file: File): Promise<{ width: number | null; height: number | null }> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") return resolve({ width: null, height: null });
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth || null, height: img.naturalHeight || null });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: null, height: null });
+    };
+    img.src = url;
+  });
 }
 
-// Simple CSV parser supporting quoted fields with commas and escaped quotes ("")
+function splitList(raw: string): string[] {
+  return raw
+    .split(/[;|]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** CSV parser supporting quoted fields with commas / newlines / escaped quotes. */
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let cur: string[] = [];
@@ -162,25 +195,22 @@ function parseCsv(text: string): string[][] {
       }
       field += ch;
       i++;
+    } else if (ch === '"') {
+      inQuotes = true;
+      i++;
+    } else if (ch === ",") {
+      cur.push(field);
+      field = "";
+      i++;
+    } else if (ch === "\n" || ch === "\r") {
+      cur.push(field);
+      field = "";
+      rows.push(cur);
+      cur = [];
+      i += ch === "\r" && text[i + 1] === "\n" ? 2 : 1;
     } else {
-      if (ch === '"') {
-        inQuotes = true;
-        i++;
-      } else if (ch === ",") {
-        cur.push(field);
-        field = "";
-        i++;
-      } else if (ch === "\n" || ch === "\r") {
-        cur.push(field);
-        field = "";
-        rows.push(cur);
-        cur = [];
-        if (ch === "\r" && text[i + 1] === "\n") i += 2;
-        else i++;
-      } else {
-        field += ch;
-        i++;
-      }
+      field += ch;
+      i++;
     }
   }
   if (field.length > 0 || cur.length > 0) {
@@ -196,12 +226,89 @@ function toCsv(rows: (string | null | undefined)[][]): string {
       r
         .map((v) => {
           const s = v ?? "";
-          if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-          return s;
+          return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
         })
         .join(","),
     )
     .join("\n");
+}
+
+function downloadCsv(csv: string, filename: string) {
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/** Map one CSV row onto the shared portfolio form payload. */
+function rowToFormData(row: CsvRow, sortOrder: number): PortfolioFormData {
+  return {
+    ...emptyPortfolioForm(),
+    title: row.title,
+    title_zh: row.title_zh,
+    slug: row.slug || slugify(row.title),
+    excerpt: row.excerpt,
+    excerpt_zh: row.excerpt_zh,
+    body_content: row.body_content,
+    body_content_zh: row.body_content_zh,
+    status: (["draft", "published", "archived"].includes(row.status)
+      ? row.status
+      : "published") as PortfolioFormData["status"],
+    is_featured: /^(1|true|yes|y)$/i.test(row.is_featured),
+    sort_order: Number(row.sort_order) || sortOrder,
+    seo_title: row.seo_title,
+    seo_title_zh: row.seo_title_zh,
+    seo_description: row.seo_description,
+    seo_description_zh: row.seo_description_zh,
+    live_url: row.live_url,
+    services: splitList(row.services),
+    project_year: row.project_year,
+    short_summary: row.excerpt,
+    location: row.location,
+    role: row.role,
+    city: row.city,
+    province: row.province,
+    country: row.country,
+    project_status: row.project_status,
+    year_started: row.year_started,
+    year_completed: row.year_completed,
+    floor_area_value: row.floor_area_value,
+    floor_area_unit: row.floor_area_unit || "sq ft",
+    site_area_value: row.site_area_value,
+    site_area_unit: row.site_area_unit || "sq ft",
+    units_count: row.units_count,
+    storeys_count: row.storeys_count,
+    parking_spaces: row.parking_spaces,
+    construction_budget: row.construction_budget,
+    scope_of_work: row.scope_of_work,
+    scope_of_work_zh: row.scope_of_work_zh,
+    key_features: row.key_features,
+    key_features_zh: row.key_features_zh,
+    design_architect: row.design_architect,
+    architect_of_record: row.architect_of_record,
+    interior_designer: row.interior_designer,
+    landscape_architect: row.landscape_architect,
+    structural_engineer: row.structural_engineer,
+    mechanical_engineer: row.mechanical_engineer,
+    electrical_engineer: row.electrical_engineer,
+    civil_engineer: row.civil_engineer,
+    other_consultants: row.other_consultants,
+    general_contractor: row.general_contractor,
+    developer_owner_client: row.developer_owner_client,
+    photographer: row.photographer,
+    other_credits: row.other_credits,
+    awards: row.awards,
+    publications: row.publications,
+    original_website_content: row.original_website_content,
+    internal_notes: row.internal_notes,
+    image_prefix: row.image_prefix,
+    expected_gallery_count: row.expected_gallery_count,
+  };
 }
 
 function BulkImportPage() {
@@ -212,10 +319,13 @@ function BulkImportPage() {
   const [rows, setRows] = useState<RowState[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0, label: "" });
   const [done, setDone] = useState(false);
   const [exporting, setExporting] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const imagesInputRef = useRef<HTMLInputElement>(null);
+
+  const dedupedFiles = useMemo(() => dedupePreferWebp(imageFiles), [imageFiles]);
 
   const resetImportState = () => {
     setCsvFile(null);
@@ -223,21 +333,27 @@ function BulkImportPage() {
     setRows([]);
     setParseError(null);
     setImporting(false);
+    setProgress({ current: 0, total: 0, label: "" });
     setDone(false);
     if (csvInputRef.current) csvInputRef.current.value = "";
     if (imagesInputRef.current) imagesInputRef.current.value = "";
   };
 
-  const dedupedFiles = useMemo(() => dedupePreferWebp(imageFiles), [imageFiles]);
-
-  const reEvaluate = (current: RowState[], deduped: File[]) =>
+  const reEvaluate = (current: RowState[], deduped: File[]): RowState[] =>
     current.map((r) => {
-      const { featured, gallery } = resolveImages(r, deduped);
+      const { featured, gallery } = resolveImages(r.data, deduped);
+      const expected = parseInt(r.data.expected_gallery_count || "", 10);
+      const imageCount = (featured ? 1 : 0) + gallery.length;
+      let error = r.data.title ? undefined : "Missing title";
+      if (!error && Number.isFinite(expected) && expected > 0 && gallery.length !== expected) {
+        error = undefined; // not fatal — surfaced as a warning in the preview
+      }
       return {
         ...r,
-        featuredName: featured ? featured.name : null,
+        featuredName: featured?.name ?? null,
         galleryNames: gallery.map((g) => g.name),
-        imageCount: (featured ? 1 : 0) + gallery.length,
+        imageCount,
+        error,
       };
     });
 
@@ -251,45 +367,31 @@ function BulkImportPage() {
       const text = await file.text();
       const matrix = parseCsv(text);
       if (matrix.length < 1) throw new Error("CSV is empty");
-      const header = matrix[0].map((h) => h.trim().toLowerCase());
-      const known = [
-        "title",
-        "category",
-        "location",
-        "role",
-        "services",
-        "website_url",
-        "description",
-        "image_prefix",
-        "image_file",
-      ];
-      const idx: Record<string, number> = {};
-      known.forEach((k) => {
-        idx[k] = header.indexOf(k);
+      const header = matrix[0].map((h) => h.trim().toLowerCase().replace(/^\uFEFF/, ""));
+      const idx: Partial<Record<CsvKey, number>> = {};
+      CSV_COLUMNS.forEach((k) => {
+        const i = header.indexOf(k);
+        if (i >= 0) idx[k] = i;
       });
-      if (idx.title < 0)
+      if (idx.title === undefined) {
         throw new Error(
-          "CSV must contain a 'title' column. Recognized headers: " + known.join(", "),
+          "CSV must contain a 'title' column. Download the template for the full column list.",
         );
+      }
       const parsed: RowState[] = matrix.slice(1).map((cols) => {
-        const get = (k: string) => (idx[k] >= 0 ? (cols[idx[k]] ?? "").trim() : "");
-        const r: RowState = {
-          title: get("title"),
-          category: get("category"),
-          location: get("location"),
-          role: get("role"),
-          services: get("services"),
-          website_url: get("website_url"),
-          description: get("description"),
-          image_prefix: get("image_prefix"),
-          image_file: get("image_file"),
+        const data = {} as CsvRow;
+        CSV_COLUMNS.forEach((k) => {
+          const i = idx[k];
+          data[k] = i === undefined ? "" : (cols[i] ?? "").trim();
+        });
+        return {
+          data,
           featuredName: null,
           galleryNames: [],
           imageCount: 0,
-          status: "pending",
+          status: "pending" as const,
+          error: data.title ? undefined : "Missing title",
         };
-        if (!r.title) r.error = "Missing title";
-        return r;
       });
       setRows(reEvaluate(parsed, dedupedFiles));
     } catch (err) {
@@ -306,37 +408,84 @@ function BulkImportPage() {
     setDone(false);
   };
 
+  // --- taxonomy helpers -------------------------------------------------
+
   const ensureCategory = async (
     name: string,
+    nameZh: string,
     cache: Map<string, string>,
   ): Promise<string | null> => {
     if (!name || !selectedClient) return null;
-    const key = name.toLowerCase();
+    const key = `cat:${name.toLowerCase()}`;
     if (cache.has(key)) return cache.get(key)!;
-    const { data: existing, error: selErr } = await supabase
+    const { data: existing } = await supabase
       .from("categories")
-      .select("id, name")
+      .select("id")
       .eq("client_id", selectedClient.id)
       .eq("category_type", "portfolio")
       .ilike("name", name)
       .limit(1);
-    if (selErr) throw selErr;
     if (existing && existing.length > 0) {
       cache.set(key, existing[0].id);
       return existing[0].id;
     }
-    const { data: inserted, error: insErr } = await supabase
+    const { data: inserted, error } = await supabase
       .from("categories")
       .insert({
         client_id: selectedClient.id,
         category_type: "portfolio",
         name,
+        name_zh: nameZh || null,
         slug: slugify(name) || null,
         sort_order: 0,
+        is_active: true,
       })
       .select("id")
       .single();
-    if (insErr) throw insErr;
+    if (error) throw error;
+    cache.set(key, inserted.id);
+    return inserted.id;
+  };
+
+  const ensureTag = async (
+    name: string,
+    nameZh: string,
+    level: 1 | 2,
+    categoryId: string | null,
+    parentTagId: string | null,
+    cache: Map<string, string>,
+  ): Promise<string | null> => {
+    if (!name || !selectedClient) return null;
+    const key = `tag${level}:${parentTagId ?? categoryId ?? ""}:${name.toLowerCase()}`;
+    if (cache.has(key)) return cache.get(key)!;
+    let q = supabase
+      .from("tags")
+      .select("id")
+      .eq("client_id", selectedClient.id)
+      .eq("tag_level", level)
+      .ilike("name", name);
+    q = level === 1 ? q.eq("category_id", categoryId) : q.eq("parent_tag_id", parentTagId);
+    const { data: existing } = await q.limit(1);
+    if (existing && existing.length > 0) {
+      cache.set(key, existing[0].id);
+      return existing[0].id;
+    }
+    const { data: inserted, error } = await supabase
+      .from("tags")
+      .insert({
+        client_id: selectedClient.id,
+        name,
+        name_zh: nameZh || null,
+        slug: slugify(name) || null,
+        tag_level: level,
+        category_id: categoryId,
+        parent_tag_id: level === 2 ? parentTagId : null,
+        sort_order: 0,
+        is_active: true,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
     cache.set(key, inserted.id);
     return inserted.id;
   };
@@ -346,13 +495,14 @@ function BulkImportPage() {
     const ext = extOf(file.name) || "png";
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const path = `${selectedClient.id}/portfolio/${filename}`;
-    const { error: upErr } = await supabase.storage
+    const { error } = await supabase.storage
       .from("content-images")
       .upload(path, file, { cacheControl: "3600", upsert: false });
-    if (upErr) throw upErr;
-    const { data } = supabase.storage.from("content-images").getPublicUrl(path);
-    return data.publicUrl;
+    if (error) throw error;
+    return supabase.storage.from("content-images").getPublicUrl(path).data.publicUrl;
   };
+
+  // --- import -----------------------------------------------------------
 
   const handleImport = async () => {
     if (!selectedClient) {
@@ -363,82 +513,91 @@ function BulkImportPage() {
       toast.error("Please upload a CSV file.");
       return;
     }
-    const needImages = rows.some((r) => r.image_prefix || r.image_file);
+    const needImages = rows.some((r) => r.data.image_prefix || r.data.image_file);
     if (needImages && imageFiles.length === 0) {
-      toast.error("Please upload image files.");
+      toast.error("Please upload the image files referenced by image_prefix.");
       return;
     }
+
     setImporting(true);
     setDone(false);
-    const categoryCache = new Map<string, string>();
+    const taxonomyCache = new Map<string, string>();
     const next = [...rows];
-    let baseSort = 0;
-    {
-      const { data: maxRow } = await supabase
-        .from("content_items")
-        .select("sort_order")
-        .eq("client_id", selectedClient.id)
-        .eq("content_type", "portfolio")
-        .order("sort_order", { ascending: false })
-        .limit(1);
-      baseSort = (maxRow?.[0]?.sort_order ?? 0) + 1;
-    }
+
+    const { data: maxRow } = await supabase
+      .from("content_items")
+      .select("sort_order")
+      .eq("client_id", selectedClient.id)
+      .eq("content_type", "portfolio")
+      .order("sort_order", { ascending: false, nullsFirst: false })
+      .limit(1);
+    const baseSort = (maxRow?.[0]?.sort_order ?? 0) + 1;
+
+    setProgress({ current: 0, total: next.length, label: "" });
 
     for (let i = 0; i < next.length; i++) {
       const row = next[i];
-      if (!row.title) {
+      setProgress({ current: i, total: next.length, label: row.data.title || `Row ${i + 1}` });
+      if (!row.data.title) {
         next[i] = { ...row, status: "failed", error: "Missing title" };
         setRows([...next]);
         continue;
       }
+      next[i] = { ...row, status: "importing" };
+      setRows([...next]);
+
       try {
-        const { featured, gallery } = resolveImages(row, dedupedFiles);
+        const { featured, gallery } = resolveImages(row.data, dedupedFiles);
 
-        // 1) Upload featured (hero) image
-        let featuredUrl: string | null = null;
-        if (featured) featuredUrl = await uploadImage(featured);
+        // 1) featured image
+        const featuredUrl = featured ? await uploadImage(featured) : null;
 
-        // 2) Create the content item
-        const { data: created, error: cErr } = await supabase
-          .from("content_items")
-          .insert({
-            client_id: selectedClient.id,
-            content_type: "portfolio",
-            title: row.title,
-            slug: slugify(row.title) || `item-${Date.now()}-${i}`,
-            excerpt: row.description || null,
-            body_content: null,
-            featured_image_url: featuredUrl,
-            status: "published",
-            is_featured: false,
-            sort_order: baseSort + i,
-          })
-          .select("id")
-          .single();
-        if (cErr) throw cErr;
+        // 2) content_items + portfolio_details
+        const formData = rowToFormData(row.data, baseSort + i);
+        if (featuredUrl) formData.featured_image_url = featuredUrl;
+        const contentId = await createPortfolio(selectedClient.id, formData);
 
-        // 3) Portfolio details (live_url + construction-style fields)
-        const { error: dErr } = await supabase.from("portfolio_details").insert({
-          content_id: created.id,
-          live_url: row.website_url || null,
-          services: parseServices(row.services),
-          client_name: row.title,
-          project_year: null,
-          short_summary: row.description || null,
-          location: row.location || null,
-          role: row.role || null,
-        });
-        if (dErr) throw dErr;
+        // 3) taxonomy: Category → Tag 1 → Tag 2
+        const catId = await ensureCategory(row.data.category, row.data.category_zh, taxonomyCache);
+        if (catId) {
+          await supabase
+            .from("content_categories")
+            .insert({ content_id: contentId, category_id: catId });
+        }
+        const tag1Id = await ensureTag(
+          row.data.tag_1, row.data.tag_1_zh, 1, catId, null, taxonomyCache,
+        );
+        if (tag1Id) {
+          await supabase.from("content_tags").insert({ content_id: contentId, tag_id: tag1Id });
+        }
+        if (tag1Id) {
+          const tag2Names = splitList(row.data.tag_2);
+          const tag2Zh = splitList(row.data.tag_2_zh);
+          for (let t = 0; t < tag2Names.length; t++) {
+            const tag2Id = await ensureTag(
+              tag2Names[t], tag2Zh[t] ?? "", 2, catId, tag1Id, taxonomyCache,
+            );
+            if (tag2Id) {
+              await supabase.from("content_tags").insert({ content_id: contentId, tag_id: tag2Id });
+            }
+          }
+        }
 
-        // 4) Gallery -> media_assets (featured first, then thumbnails)
+        // 4) media_assets (featured first, then the numbered gallery)
         const assetRows: Record<string, unknown>[] = [];
         if (featured && featuredUrl) {
+          const size = await readImageSize(featured);
           assetRows.push({
             client_id: selectedClient.id,
-            content_id: created.id,
+            content_id: contentId,
             file_url: featuredUrl,
             file_type: featured.type || `image/${extOf(featured.name)}`,
-            alt_text: row.title,
+            original_filename: featured.name,
+            width_px: size.width,
+            height_px: size.height,
+            alt_text: row.data.title,
+            alt_text_zh: row.data.title_zh || null,
+            image_credit: row.data.photographer || null,
             is_featured: true,
             sort_order: 0,
           });
@@ -446,37 +605,30 @@ function BulkImportPage() {
         for (let g = 0; g < gallery.length; g++) {
           const gFile = gallery[g];
           const gUrl = await uploadImage(gFile);
+          const size = await readImageSize(gFile);
           assetRows.push({
             client_id: selectedClient.id,
-            content_id: created.id,
+            content_id: contentId,
             file_url: gUrl,
             file_type: gFile.type || `image/${extOf(gFile.name)}`,
-            alt_text: `${row.title} — ${g + 1}`,
+            original_filename: gFile.name,
+            width_px: size.width,
+            height_px: size.height,
+            alt_text: `${row.data.title} — ${g + 1}`,
+            alt_text_zh: row.data.title_zh ? `${row.data.title_zh} — ${g + 1}` : null,
+            image_credit: row.data.photographer || null,
             is_featured: false,
             sort_order: g + 1,
           });
         }
         if (assetRows.length > 0) {
-          const { error: mErr } = await supabase.from("media_assets").insert(assetRows);
-          if (mErr) throw mErr;
-        }
-
-        // 5) Category link
-        if (row.category) {
-          try {
-            const catId = await ensureCategory(row.category, categoryCache);
-            if (catId) {
-              await supabase
-                .from("content_categories")
-                .insert({ content_id: created.id, category_id: catId });
-            }
-          } catch (catErr) {
-            console.error("Category link failed", catErr);
-          }
+          const { error } = await supabase.from("media_assets").insert(assetRows);
+          if (error) throw error;
         }
 
         next[i] = { ...row, status: "success", error: undefined };
       } catch (err) {
+        console.error("[import] row failed", row.data.title, err);
         next[i] = {
           ...row,
           status: "failed",
@@ -484,6 +636,7 @@ function BulkImportPage() {
         };
       }
       setRows([...next]);
+      setProgress({ current: i + 1, total: next.length, label: row.data.title });
     }
 
     setImporting(false);
@@ -495,6 +648,8 @@ function BulkImportPage() {
     toast.success(`Imported ${ok}, failed ${fail}`);
   };
 
+  // --- export -----------------------------------------------------------
+
   const handleExport = async () => {
     if (!selectedClient) {
       toast.error("Select a client first");
@@ -504,78 +659,79 @@ function BulkImportPage() {
     try {
       const { data: items, error } = await supabase
         .from("content_items")
-        .select("id, title, featured_image_url, excerpt")
+        .select("*")
         .eq("client_id", selectedClient.id)
         .eq("content_type", "portfolio")
         .order("sort_order", { ascending: true });
       if (error) throw error;
-      const ids = (items ?? []).map((i) => i.id);
-      const detailsMap = new Map<
-        string,
-        { live_url: string | null; short_summary: string | null; location: string | null; role: string | null; services: string[] | null }
-      >();
+
+      const ids = (items ?? []).map((i: { id: string }) => i.id);
+      const detailsMap = new Map<string, Record<string, unknown>>();
       const catMap = new Map<string, string[]>();
+      const tag1Map = new Map<string, string[]>();
+      const tag2Map = new Map<string, string[]>();
+
       if (ids.length > 0) {
         const { data: details } = await supabase
           .from("portfolio_details")
-          .select("content_id, live_url, short_summary, location, role, services")
+          .select("*")
           .in("content_id", ids);
-        (details ?? []).forEach((d: any) => {
-          detailsMap.set(d.content_id, {
-            live_url: d.live_url,
-            short_summary: d.short_summary,
-            location: d.location,
-            role: d.role,
-            services: d.services,
-          });
+        (details ?? []).forEach((d: Record<string, unknown>) => {
+          detailsMap.set(d.content_id as string, d);
         });
         const { data: cc } = await supabase
           .from("content_categories")
           .select("content_id, categories(name)")
           .in("content_id", ids);
-        (cc ?? []).forEach((row: any) => {
-          const name = row.categories?.name;
-          if (!name) return;
-          const arr = catMap.get(row.content_id) ?? [];
-          arr.push(name);
-          catMap.set(row.content_id, arr);
+        ((cc ?? []) as unknown[]).forEach((raw) => {
+          const r = raw as { content_id: string; categories?: { name?: string } | { name?: string }[] | null };
+          const list = Array.isArray(r.categories) ? r.categories : r.categories ? [r.categories] : [];
+          list.forEach((c) => {
+            if (!c?.name) return;
+            catMap.set(r.content_id, [...(catMap.get(r.content_id) ?? []), c.name]);
+          });
         });
+        const { data: ct } = await supabase
+          .from("content_tags")
+          .select("content_id, tags(name, tag_level)")
+          .in("content_id", ids);
+        ((ct ?? []) as unknown[]).forEach((raw) => {
+          const r = raw as {
+            content_id: string;
+            tags?: { name?: string; tag_level?: number } | { name?: string; tag_level?: number }[] | null;
+          };
+          const list = Array.isArray(r.tags) ? r.tags : r.tags ? [r.tags] : [];
+          list.forEach((t) => {
+            if (!t?.name) return;
+            const target = t.tag_level === 2 ? tag2Map : tag1Map;
+            target.set(r.content_id, [...(target.get(r.content_id) ?? []), t.name]);
+          });
+        });
+
       }
 
-      const header = [
-        "title",
-        "category",
-        "location",
-        "role",
-        "services",
-        "website_url",
-        "description",
-        "featured_image_url",
-      ];
-      const data: string[][] = [header];
-      (items ?? []).forEach((it: any) => {
-        const d = detailsMap.get(it.id);
-        data.push([
-          it.title ?? "",
-          (catMap.get(it.id) ?? []).join("; "),
-          d?.location ?? "",
-          d?.role ?? "",
-          (d?.services ?? []).join("; "),
-          d?.live_url ?? "",
-          it.excerpt ?? d?.short_summary ?? "",
-          it.featured_image_url ?? "",
-        ]);
+      const header = CSV_COLUMNS.filter((c) => c !== "image_file");
+      const data: string[][] = [[...header]];
+      (items ?? []).forEach((it: Record<string, unknown>) => {
+        const d = detailsMap.get(it.id as string) ?? {};
+        const pick = (k: string): string => {
+          const v = (it[k] ?? d[k]) as unknown;
+          if (v === null || v === undefined) return "";
+          if (Array.isArray(v)) return v.join("; ");
+          return String(v);
+        };
+        data.push(
+          header.map((col) => {
+            if (col === "category") return (catMap.get(it.id as string) ?? []).join("; ");
+            if (col === "tag_1") return (tag1Map.get(it.id as string) ?? []).join("; ");
+            if (col === "tag_2") return (tag2Map.get(it.id as string) ?? []).join("; ");
+            if (col === "category_zh" || col === "tag_1_zh" || col === "tag_2_zh") return "";
+            return pick(col);
+          }),
+        );
       });
-      const csv = toCsv(data);
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${slugify(selectedClient.client_name)}-portfolio-${Date.now()}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+
+      downloadCsv(toCsv(data), `${slugify(selectedClient.client_name)}-portfolio-${Date.now()}.csv`);
       toast.success("Export ready");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export failed");
@@ -585,38 +741,38 @@ function BulkImportPage() {
   };
 
   const downloadTemplate = () => {
-    const csv = toCsv([
-      ["title", "category", "location", "role", "services", "website_url", "description", "image_prefix"],
-      [
-        "Ballatree Rd Residence",
-        "Residential (single family)",
-        "West Vancouver, BC",
-        "Construction Manager",
-        "Construction Management; Design-Build",
-        "",
-        "Custom single-family home with full construction management.",
-        "ballatree-rd",
-      ],
-      [
-        "Friendly Dental",
-        "Dental / Healthcare",
-        "Richmond, BC",
-        "",
-        "",
-        "https://friendlydental.ca",
-        "Modern dental clinic website.",
-        "friendly-dental",
-      ],
-    ]);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "portfolio-import-template.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const header = CSV_COLUMNS.filter((c) => c !== "image_file");
+    const sample: Partial<Record<CsvKey, string>> = {
+      title: "Ballatree Rd Residence",
+      title_zh: "巴拉樹路住宅",
+      status: "published",
+      category: "Residential",
+      category_zh: "住宅",
+      tag_1: "Single Family",
+      tag_1_zh: "獨立屋",
+      tag_2: "Laneway House; Renovation",
+      city: "West Vancouver",
+      province: "BC",
+      country: "Canada",
+      project_status: "Completed",
+      year_started: "2019",
+      year_completed: "2022",
+      project_year: "2022",
+      floor_area_value: "4800",
+      floor_area_unit: "sq ft",
+      storeys_count: "2",
+      scope_of_work: "Full architectural design and construction management.",
+      services: "Construction Management; Design-Build",
+      design_architect: "Architect57",
+      general_contractor: "Bluluma Build",
+      photographer: "Jane Doe",
+      image_prefix: "ballatree-rd",
+      expected_gallery_count: "8",
+    };
+    downloadCsv(
+      toCsv([[...header], header.map((h) => sample[h] ?? "")]),
+      "portfolio-import-template.csv",
+    );
   };
 
   if (!selectedClient) {
@@ -637,17 +793,15 @@ function BulkImportPage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Bulk Import Portfolio</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Import multiple portfolio items + galleries for {selectedClient.client_name} via CSV + images.
+            Architect57-compliant CSV + image import for {selectedClient.client_name}.
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={resetImportState} disabled={importing}>
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Clear
+            <RotateCcw className="mr-2 h-4 w-4" /> Clear
           </Button>
           <Button variant="outline" onClick={downloadTemplate}>
-            <FileText className="mr-2 h-4 w-4" />
-            CSV Template
+            <FileText className="mr-2 h-4 w-4" /> CSV Template
           </Button>
           <Button variant="outline" onClick={handleExport} disabled={exporting}>
             {exporting ? (
@@ -674,12 +828,13 @@ function BulkImportPage() {
           />
           {csvFile && (
             <p className="mt-2 text-xs text-muted-foreground">
-              {csvFile.name} · {rows.length} row(s)
+              {csvFile.name} · {rows.length} project(s)
             </p>
           )}
           {parseError && <p className="mt-2 text-xs text-destructive">{parseError}</p>}
           <p className="mt-2 text-xs text-muted-foreground">
-            Columns: title, category, location, role, services, website_url, description, image_prefix
+            Taxonomy columns: <code>category</code> → <code>tag_1</code> → <code>tag_2</code>{" "}
+            (semicolon-separated). Unknown columns are ignored.
           </p>
         </div>
 
@@ -701,17 +856,29 @@ function BulkImportPage() {
             </p>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
-            Gallery is collected by <code>image_prefix</code>: <code>{"{prefix}_feature"}</code> = hero,{" "}
-            <code>{"{prefix}_01..NN"}</code> = thumbnails.
+            Matching by <code>image_prefix</code>: <code>{"{prefix}_feature"}</code> = hero,{" "}
+            <code>{"{prefix}_01..NN"}</code> = gallery in order.
           </p>
         </div>
       </div>
+
+      {importing && (
+        <div className="rounded-lg border p-4">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="font-medium">
+              Importing {progress.current} / {progress.total}
+            </span>
+            <span className="text-muted-foreground">{progress.label}</span>
+          </div>
+          <Progress value={progress.total ? (progress.current / progress.total) * 100 : 0} />
+        </div>
+      )}
 
       {rows.length > 0 && (
         <div className="rounded-lg border">
           <div className="flex items-center justify-between border-b p-3">
             <p className="text-sm font-medium">
-              Preview ({rows.length} rows, {validRows.length} valid)
+              Preview ({rows.length} projects, {validRows.length} valid)
             </p>
             <Button onClick={handleImport} disabled={importing || validRows.length === 0}>
               {importing ? (
@@ -719,65 +886,87 @@ function BulkImportPage() {
               ) : (
                 <Upload className="mr-2 h-4 w-4" />
               )}
-              Import {validRows.length} item(s)
+              Import {validRows.length} project(s)
             </Button>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Images</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r, idx) => (
-                <TableRow key={idx}>
-                  <TableCell className="font-medium">
-                    {r.title || <span className="text-destructive">—</span>}
-                  </TableCell>
-                  <TableCell>{r.category || "—"}</TableCell>
-                  <TableCell className="text-xs">{r.location || "—"}</TableCell>
-                  <TableCell>
-                    {r.image_prefix || r.image_file ? (
-                      r.imageCount > 0 ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                          <CheckCircle2 className="h-3 w-3" />
-                          {r.featuredName ? "1 hero" : "no hero"} + {r.galleryNames.length} gallery
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs text-destructive">
-                          <XCircle className="h-3 w-3" /> no match for "{r.image_prefix || r.image_file}"
-                        </span>
-                      )
-                    ) : (
-                      <span className="text-xs text-muted-foreground">none</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {r.status === "success" ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                        <CheckCircle2 className="h-3 w-3" /> Imported
-                      </span>
-                    ) : r.status === "failed" ? (
-                      <span
-                        className="inline-flex items-center gap-1 text-xs text-destructive"
-                        title={r.error}
-                      >
-                        <XCircle className="h-3 w-3" /> {r.error ?? "Failed"}
-                      </span>
-                    ) : r.error ? (
-                      <span className="text-xs text-destructive">{r.error}</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Pending</span>
-                    )}
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Category → Tag 1 → Tag 2</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Images</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r, idx) => {
+                  const expected = parseInt(r.data.expected_gallery_count || "", 10);
+                  const mismatch =
+                    Number.isFinite(expected) && expected > 0 && r.galleryNames.length !== expected;
+                  return (
+                    <TableRow key={idx}>
+                      <TableCell className="font-medium">
+                        {r.data.title || <span className="text-destructive">—</span>}
+                        {r.data.title_zh && (
+                          <span className="block text-xs text-muted-foreground">{r.data.title_zh}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {[r.data.category, r.data.tag_1, r.data.tag_2].filter(Boolean).join(" › ") || "—"}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {[r.data.city, r.data.province].filter(Boolean).join(", ") || r.data.location || "—"}
+                      </TableCell>
+                      <TableCell>
+                        {r.data.image_prefix || r.data.image_file ? (
+                          r.imageCount > 0 ? (
+                            <span
+                              className={`inline-flex items-center gap-1 text-xs ${mismatch ? "text-amber-600" : "text-green-600"}`}
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                              {r.featuredName ? "1 hero" : "no hero"} + {r.galleryNames.length} gallery
+                              {mismatch ? ` (expected ${expected})` : ""}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs text-destructive">
+                              <XCircle className="h-3 w-3" /> no match for "
+                              {r.data.image_prefix || r.data.image_file}"
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-xs text-muted-foreground">none</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {r.status === "success" ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-green-600">
+                            <CheckCircle2 className="h-3 w-3" /> Imported
+                          </span>
+                        ) : r.status === "importing" ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Importing
+                          </span>
+                        ) : r.status === "failed" ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-xs text-destructive"
+                            title={r.error}
+                          >
+                            <XCircle className="h-3 w-3" /> {r.error ?? "Failed"}
+                          </span>
+                        ) : r.error ? (
+                          <span className="text-xs text-destructive">{r.error}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Pending</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
@@ -792,15 +981,14 @@ function BulkImportPage() {
                 .filter((r) => r.status === "failed")
                 .map((r, i) => (
                   <li key={i}>
-                    <strong>{r.title || "(no title)"}</strong>: {r.error}
+                    <strong>{r.data.title || "(no title)"}</strong>: {r.error}
                   </li>
                 ))}
             </ul>
           )}
           <div className="mt-4 flex gap-2">
             <Button variant="outline" onClick={resetImportState}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Import Another CSV
+              <RotateCcw className="mr-2 h-4 w-4" /> Import Another CSV
             </Button>
             <Link to="/portfolio">
               <Button>View All Portfolio</Button>

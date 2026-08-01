@@ -11,7 +11,29 @@ interface Asset {
   file_url: string;
   is_featured: boolean;
   sort_order: number;
+  original_filename?: string | null;
+  width_px?: number | null;
+  height_px?: number | null;
 }
+
+/** Read intrinsic pixel dimensions from a local image file. */
+function readImageSize(file: File): Promise<{ width: number | null; height: number | null }> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") return resolve({ width: null, height: null });
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth || null, height: img.naturalHeight || null });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: null, height: null });
+    };
+    img.src = url;
+  });
+}
+
 
 interface GalleryManagerProps {
   contentId: string;
@@ -39,7 +61,8 @@ export function GalleryManager({ contentId, clientId, onFeaturedChange }: Galler
     setLoading(true);
     const { data, error } = await supabase
       .from("media_assets")
-      .select("id, file_url, is_featured, sort_order")
+      .select("id, file_url, is_featured, sort_order, original_filename, width_px, height_px")
+
       .eq("content_id", contentId)
       .order("sort_order", { ascending: true });
     if (error) toast.error(error.message);
@@ -140,6 +163,7 @@ export function GalleryManager({ contentId, clientId, onFeaturedChange }: Galler
         if (upErr) throw upErr;
         const { data: pub } = supabase.storage.from("content-images").getPublicUrl(path);
         const isFeatured = !hasFeatured && newRows.length === 0;
+        const { width, height } = await readImageSize(file);
         const { data: inserted, error: insErr } = await supabase
           .from("media_assets")
           .insert({
@@ -147,11 +171,15 @@ export function GalleryManager({ contentId, clientId, onFeaturedChange }: Galler
             content_id: contentId,
             file_url: pub.publicUrl,
             file_type: file.type || `image/${ext}`,
+            original_filename: file.name,
+            width_px: width,
+            height_px: height,
             is_featured: isFeatured,
             sort_order: order++,
           })
-          .select("id, file_url, is_featured, sort_order")
+          .select("id, file_url, is_featured, sort_order, original_filename, width_px, height_px")
           .single();
+
         if (insErr) throw insErr;
         newRows.push(inserted as Asset);
       }
@@ -215,11 +243,21 @@ export function GalleryManager({ contentId, clientId, onFeaturedChange }: Galler
               onDragOver={(e) => onDragOver(e, i)}
               onDragEnd={persistOrder}
               onDrop={persistOrder}
+              title={[a.original_filename, a.width_px && a.height_px ? `${a.width_px}×${a.height_px}` : null]
+                .filter(Boolean)
+                .join(" · ")}
               className={`group relative aspect-[4/3] overflow-hidden rounded-md border bg-muted ${
                 a.is_featured ? "ring-2 ring-primary" : ""
               }`}
             >
-              <img src={a.file_url} alt="" className="h-full w-full object-cover" draggable={false} />
+              <img src={a.file_url} alt={a.original_filename ?? ""} className="h-full w-full object-cover" draggable={false} />
+              {(a.original_filename || a.width_px) && (
+                <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 py-0.5 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                  {a.original_filename ?? ""}
+                  {a.width_px && a.height_px ? ` · ${a.width_px}×${a.height_px}` : ""}
+                </span>
+              )}
+
 
               {/* drag handle */}
               <div className="absolute left-1 top-1 rounded bg-black/50 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100">

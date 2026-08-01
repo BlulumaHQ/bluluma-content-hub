@@ -4,6 +4,8 @@ import { toast } from "sonner";
 
 import { useClientContext } from "@/contexts/ClientContext";
 import { supabase } from "@/lib/supabase";
+import { updatePortfolio, type PortfolioFormData } from "@/lib/portfolio";
+
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 import { GalleryManager } from "@/components/portfolio/GalleryManager";
 import { CategoryTagPanel } from "@/components/portfolio/CategoryTagPanel";
@@ -51,52 +53,12 @@ function EditPortfolioPage() {
     enabled: !!id,
   });
 
-  const handleSave = async (data: {
-    title: string;
-    slug: string;
-    excerpt: string;
-    body_content: string;
-    featured_image_url: string;
-    status: "draft" | "published" | "archived";
-    is_featured: boolean;
-    sort_order: number;
-    live_url: string;
-    services: string[];
-    project_year: number | "";
-    short_summary: string;
-  }) => {
-    const { error: contentError } = await supabase
-      .from("content_items")
-      .update({
-        title: data.title,
-        slug: data.slug,
-        excerpt: data.excerpt || null,
-        body_content: data.body_content || null,
-        featured_image_url: data.featured_image_url || null,
-        status: data.status,
-        is_featured: data.is_featured,
-        sort_order: data.sort_order,
-      })
-      .eq("id", id);
-
-    if (contentError) throw new Error(contentError.message);
-
-    const { error: detailsError } = await supabase
-      .from("portfolio_details")
-      .update({
-        live_url: data.live_url || null,
-        services: data.services.length > 0 ? data.services : null,
-        client_name: data.title,
-        project_year: data.project_year === "" ? null : data.project_year,
-        short_summary: data.short_summary || null,
-      })
-      .eq("content_id", id);
-
-    if (detailsError) throw new Error(detailsError.message);
-
+  const handleSave = async (data: PortfolioFormData) => {
+    await updatePortfolio(id, selectedClient!.id, data);
     toast.success("Portfolio updated successfully");
     navigate({ to: "/portfolio" });
   };
+
 
   if (!selectedClient) {
     return (
