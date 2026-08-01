@@ -134,6 +134,10 @@ function EditClientPage() {
           <Input value={form.client_name} onChange={(e) => setForm((f) => ({ ...f, client_name: e.target.value }))} required className="mt-1" />
         </div>
         <div>
+          <Label>公司名稱 (ZH)</Label>
+          <Input value={form.company_name_zh} onChange={(e) => setForm((f) => ({ ...f, company_name_zh: e.target.value }))} className="mt-1" />
+        </div>
+        <div>
           <Label>Slug</Label>
           <Input value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} className="mt-1" />
         </div>
@@ -142,9 +146,45 @@ function EditClientPage() {
           <Input type="url" value={form.website_url} onChange={(e) => setForm((f) => ({ ...f, website_url: e.target.value }))} className="mt-1" />
         </div>
         <div>
+          <Label>Logo URL</Label>
+          <Input value={form.logo_url} onChange={(e) => setForm((f) => ({ ...f, logo_url: e.target.value }))} className="mt-1" placeholder="https://.../logo.svg" />
+        </div>
+        <div>
           <Label>Industry</Label>
           <Input value={form.industry} onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))} className="mt-1" />
         </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label>Default Locale</Label>
+            <Select value={form.default_locale} onValueChange={(v) => setForm((f) => ({ ...f, default_locale: v }))}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English (en)</SelectItem>
+                <SelectItem value="zh">中文 (zh)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Supported Locales</Label>
+            <div className="mt-2 flex gap-2">
+              {["en", "zh"].map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => toggleLocale(code)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                    form.supported_locales.includes(code)
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background"
+                  }`}
+                >
+                  {code}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div>
           <Label>Brand Primary Color</Label>
           <div className="mt-1 flex items-center gap-2">
