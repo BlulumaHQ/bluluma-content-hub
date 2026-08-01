@@ -172,6 +172,50 @@ function NewClientPage() {
         </div>
 
         <div>
+          <Label htmlFor="logo">Logo URL</Label>
+          <Input
+            id="logo"
+            value={logoUrl}
+            onChange={(e) => setLogoUrl(e.target.value)}
+            className="mt-1"
+            placeholder="https://.../logo.svg"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label>Default Locale</Label>
+            <Select value={defaultLocale} onValueChange={setDefaultLocale}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English (en)</SelectItem>
+                <SelectItem value="zh">中文 (zh)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Supported Locales</Label>
+            <div className="mt-2 flex gap-2">
+              {["en", "zh"].map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => toggleLocale(code)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                    locales.includes(code)
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background"
+                  }`}
+                >
+                  {code}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+
+        <div>
           <Label htmlFor="color">Brand Primary Color</Label>
           <div className="mt-1 flex items-center gap-2">
             <Input
