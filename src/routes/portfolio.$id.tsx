@@ -4,6 +4,8 @@ import { toast } from "sonner";
 
 import { useClientContext } from "@/contexts/ClientContext";
 import { supabase } from "@/lib/supabase";
+import { updatePortfolio, type PortfolioFormData } from "@/lib/portfolio";
+
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 import { GalleryManager } from "@/components/portfolio/GalleryManager";
 import { CategoryTagPanel } from "@/components/portfolio/CategoryTagPanel";
