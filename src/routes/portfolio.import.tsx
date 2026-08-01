@@ -683,21 +683,31 @@ function BulkImportPage() {
           .from("content_categories")
           .select("content_id, categories(name)")
           .in("content_id", ids);
-        (cc ?? []).forEach((r: { content_id: string; categories?: { name?: string } | null }) => {
-          if (!r.categories?.name) return;
-          catMap.set(r.content_id, [...(catMap.get(r.content_id) ?? []), r.categories.name]);
+        ((cc ?? []) as unknown[]).forEach((raw) => {
+          const r = raw as { content_id: string; categories?: { name?: string } | { name?: string }[] | null };
+          const list = Array.isArray(r.categories) ? r.categories : r.categories ? [r.categories] : [];
+          list.forEach((c) => {
+            if (!c?.name) return;
+            catMap.set(r.content_id, [...(catMap.get(r.content_id) ?? []), c.name]);
+          });
         });
         const { data: ct } = await supabase
           .from("content_tags")
           .select("content_id, tags(name, tag_level)")
           .in("content_id", ids);
-        (ct ?? []).forEach(
-          (r: { content_id: string; tags?: { name?: string; tag_level?: number } | null }) => {
-            if (!r.tags?.name) return;
-            const target = r.tags.tag_level === 2 ? tag2Map : tag1Map;
-            target.set(r.content_id, [...(target.get(r.content_id) ?? []), r.tags.name]);
-          },
-        );
+        ((ct ?? []) as unknown[]).forEach((raw) => {
+          const r = raw as {
+            content_id: string;
+            tags?: { name?: string; tag_level?: number } | { name?: string; tag_level?: number }[] | null;
+          };
+          const list = Array.isArray(r.tags) ? r.tags : r.tags ? [r.tags] : [];
+          list.forEach((t) => {
+            if (!t?.name) return;
+            const target = t.tag_level === 2 ? tag2Map : tag1Map;
+            target.set(r.content_id, [...(target.get(r.content_id) ?? []), t.name]);
+          });
+        });
+
       }
 
       const header = CSV_COLUMNS.filter((c) => c !== "image_file");
