@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import TranslationImport from "@/components/portfolio/TranslationImport";
 import {
   createPortfolio,
   emptyPortfolioForm,
@@ -314,6 +315,7 @@ function rowToFormData(row: CsvRow, sortOrder: number): PortfolioFormData {
 function BulkImportPage() {
   const { selectedClient } = useClientContext();
   const qc = useQueryClient();
+  const [mode, setMode] = useState<"full" | "translations">("full");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [rows, setRows] = useState<RowState[]>([]);
@@ -787,8 +789,41 @@ function BulkImportPage() {
   const successCount = rows.filter((r) => r.status === "success").length;
   const failedCount = rows.filter((r) => r.status === "failed").length;
 
+  const modeSwitch = (
+    <div className="inline-flex rounded-md border p-1">
+      <Button
+        size="sm"
+        variant={mode === "full" ? "default" : "ghost"}
+        onClick={() => setMode("full")}
+      >
+        Full Import
+      </Button>
+      <Button
+        size="sm"
+        variant={mode === "translations" ? "default" : "ghost"}
+        onClick={() => setMode("translations")}
+      >
+        Update Translations Only
+      </Button>
+    </div>
+  );
+
+  if (mode === "translations") {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Bulk Import Portfolio</h1>
+          <div className="mt-3">{modeSwitch}</div>
+        </div>
+        <TranslationImport client={selectedClient} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {modeSwitch}
+
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Bulk Import Portfolio</h1>
