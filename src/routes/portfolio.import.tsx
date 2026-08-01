@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import TranslationImport from "@/components/portfolio/TranslationImport";
 import {
   createPortfolio,
   emptyPortfolioForm,
@@ -314,6 +315,7 @@ function rowToFormData(row: CsvRow, sortOrder: number): PortfolioFormData {
 function BulkImportPage() {
   const { selectedClient } = useClientContext();
   const qc = useQueryClient();
+  const [mode, setMode] = useState<"full" | "translations">("full");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [rows, setRows] = useState<RowState[]>([]);
