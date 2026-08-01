@@ -39,10 +39,14 @@ function EditClientPage() {
 
   const [form, setForm] = useState({
     client_name: "",
+    company_name_zh: "",
     slug: "",
     website_url: "",
+    logo_url: "",
     industry: "",
     brand_primary_color: "#6366f1",
+    default_locale: "en",
+    supported_locales: ["en"] as string[],
     status: "active",
   });
   const [saving, setSaving] = useState(false);
@@ -51,25 +55,44 @@ function EditClientPage() {
     if (client) {
       setForm({
         client_name: client.client_name ?? "",
-        slug: (client as { slug?: string }).slug ?? "",
+        company_name_zh: client.company_name_zh ?? "",
+        slug: client.slug ?? "",
         website_url: client.website_url ?? "",
+        logo_url: client.logo_url ?? "",
         industry: client.industry ?? "",
         brand_primary_color: client.brand_primary_color ?? "#6366f1",
+        default_locale: client.default_locale ?? "en",
+        supported_locales: client.supported_locales ?? ["en"],
         status: client.status ?? "active",
       });
     }
   }, [client]);
 
+  const toggleLocale = (code: string) =>
+    setForm((f) => ({
+      ...f,
+      supported_locales: f.supported_locales.includes(code)
+        ? f.supported_locales.filter((l) => l !== code)
+        : [...f.supported_locales, code],
+    }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
+      const supported = form.supported_locales.includes(form.default_locale)
+        ? form.supported_locales
+        : [form.default_locale, ...form.supported_locales];
       const payload = {
         client_name: form.client_name.trim(),
+        company_name_zh: form.company_name_zh.trim() || null,
         slug: form.slug.trim() || null,
         website_url: form.website_url.trim() || null,
+        logo_url: form.logo_url.trim() || null,
         industry: form.industry.trim() || null,
         brand_primary_color: form.brand_primary_color || null,
+        default_locale: form.default_locale,
+        supported_locales: supported,
         status: form.status,
       };
       const { data, error } = await supabase
@@ -92,6 +115,7 @@ function EditClientPage() {
       setSaving(false);
     }
   };
+
 
   if (isLoading) {
     return <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>;
