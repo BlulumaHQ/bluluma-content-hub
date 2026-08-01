@@ -11,7 +11,29 @@ interface Asset {
   file_url: string;
   is_featured: boolean;
   sort_order: number;
+  original_filename?: string | null;
+  width_px?: number | null;
+  height_px?: number | null;
 }
+
+/** Read intrinsic pixel dimensions from a local image file. */
+function readImageSize(file: File): Promise<{ width: number | null; height: number | null }> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") return resolve({ width: null, height: null });
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth || null, height: img.naturalHeight || null });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: null, height: null });
+    };
+    img.src = url;
+  });
+}
+
 
 interface GalleryManagerProps {
   contentId: string;
