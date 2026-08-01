@@ -3,7 +3,8 @@ import { ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { PortfolioItem, Client } from "@/types";
-import { supabase } from "@/lib/supabase";
+import { updatePortfolio, type PortfolioFormData } from "@/lib/portfolio";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
