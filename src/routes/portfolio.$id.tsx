@@ -95,9 +95,14 @@ function EditPortfolioPage() {
         <PortfolioForm client={selectedClient} initialData={item} onSave={handleSave} />
       </div>
 
-      {/* Gallery management: view all photos, drag to reorder, set featured, add/delete */}
+      {/* Featured image + project gallery: same media_assets records the importer writes */}
       <div className="mt-6 max-w-3xl">
-        <GalleryManager contentId={item.id} clientId={selectedClient.id} />
+        <GalleryManager
+          contentId={item.id}
+          clientId={selectedClient.id}
+          featuredImageUrl={item.featured_image_url}
+          expectedGalleryCount={item.portfolio_details?.expected_gallery_count ?? null}
+        />
       </div>
 
       {/* Category + tag assignment */}
