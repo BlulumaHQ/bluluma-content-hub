@@ -1005,13 +1005,68 @@ function BulkImportPage() {
         </div>
       )}
 
-      {done && (
-        <div className="rounded-lg border p-4">
+      {done && report && (
+        <div className="space-y-3 rounded-lg border p-4">
           <p className="font-medium">Import complete</p>
-          <p className="mt-1 text-sm text-green-600">Successfully imported: {successCount}</p>
-          <p className="text-sm text-destructive">Failed: {failedCount}</p>
+          <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
+            <div>
+              <p className="font-medium">PROJECTS</p>
+              <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                <li>{report.projectsProcessed} processed</li>
+                <li>{report.projectsCreated} created</li>
+                <li>{report.projectsUpdated} matched existing (images added)</li>
+                <li>{report.projectsFailed} failed</li>
+                <li>{report.projectsWithWarnings} with warnings</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium">IMAGES</p>
+              <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                <li>{report.imagesUploaded} uploaded</li>
+                <li>{report.imagesSkipped} already existed</li>
+                <li>{report.imagesUnmatched} unmatched</li>
+                <li>{report.imagesMissing} missing versus expected counts</li>
+                <li>{report.imagesFailed} failed</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium">FEATURED IMAGES</p>
+              <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                <li>{report.featuredExplicit} explicit cover images</li>
+                <li>{report.featuredFallback} fallback to gallery image 01</li>
+                <li>{report.featuredNone} projects without images</li>
+              </ul>
+            </div>
+          </div>
+
+          {report.failures.length > 0 && (
+            <div>
+              <p className="text-sm font-medium text-destructive">FAILED FILES</p>
+              <div className="mt-1 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Filename</TableHead>
+                      <TableHead>Reason</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {report.failures.map((f, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs">{f.project}</TableCell>
+                        <TableCell className="text-xs">{f.filename}</TableCell>
+                        <TableCell className="text-xs text-destructive">{f.reason}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
           {failedCount > 0 && (
-            <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
+            <ul className="list-disc pl-5 text-xs text-muted-foreground">
               {rows
                 .filter((r) => r.status === "failed")
                 .map((r, i) => (
