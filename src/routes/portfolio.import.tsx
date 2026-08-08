@@ -875,27 +875,63 @@ function BulkImportPage() {
 
         <div className="rounded-lg border p-4">
           <Label className="mb-2 flex items-center gap-2 text-sm font-medium">
-            <ImageIcon className="h-4 w-4" /> Images (multiple)
+            <ImageIcon className="h-4 w-4" /> Images (ZIP or multiple files)
           </Label>
           <input
             ref={imagesInputRef}
             type="file"
-            accept="image/*"
+            accept=".zip,application/zip,image/*"
             multiple
             onChange={handleImagesChange}
             className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-primary-foreground hover:file:bg-primary/90"
           />
-          {imageFiles.length > 0 && (
+          {readingZip && (
+            <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Reading ZIP…
+            </p>
+          )}
+          {images.length > 0 && (
             <p className="mt-2 text-xs text-muted-foreground">
-              {imageFiles.length} selected · {dedupedFiles.length} after de-duping (webp preferred)
+              {images.length} image(s) · {dedupedImages.length} after de-duping (webp preferred)
             </p>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
-            Matching by <code>image_prefix</code>: <code>{"{prefix}_feature"}</code> = hero,{" "}
-            <code>{"{prefix}_01..NN"}</code> = gallery in order.
+            Naming: <code>{"{image_prefix}-cover.jpg"}</code> = featured,{" "}
+            <code>{"{image_prefix}-01.jpg … -NN.jpg"}</code> = gallery in numeric order.
+            <code>.jpg .jpeg .png .webp</code>, case-insensitive. Without a
+            <code>-cover</code> file, gallery image 01 becomes the featured image (not duplicated).
           </p>
+          <label className="mt-3 flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={replaceGallery}
+              onChange={(e) => setReplaceGallery(e.target.checked)}
+            />
+            Replace existing gallery for matched projects (destructive)
+          </label>
+          {replaceGallery && (
+            <p className="mt-1 text-xs text-destructive">
+              Existing gallery images of matched projects will be deleted before import.
+            </p>
+          )}
         </div>
       </div>
+
+      {unmatchedNames.length > 0 && (
+        <div className="rounded-lg border border-amber-500/40 p-4">
+          <p className="text-sm font-medium text-amber-600">
+            UNMATCHED IMAGES ({unmatchedNames.length})
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            These files match no <code>image_prefix</code> and will not be imported.
+          </p>
+          <ul className="mt-2 grid grid-cols-2 gap-x-4 text-xs text-muted-foreground md:grid-cols-3">
+            {unmatchedNames.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {importing && (
         <div className="rounded-lg border p-4">
