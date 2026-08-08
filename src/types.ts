@@ -51,6 +51,7 @@ export interface PortfolioDetail {
   short_summary: string | null;
   location: string | null;
   role: string | null;
+  architect_roles?: string[] | null;
 
   // Location
   city: string | null;

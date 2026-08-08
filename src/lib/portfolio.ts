@@ -27,6 +27,7 @@ export interface PortfolioFormData {
   short_summary: string;
   location: string;
   role: string;
+  architect_roles: string[];
 
   // location
   city: string;
