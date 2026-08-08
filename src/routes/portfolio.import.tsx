@@ -31,6 +31,15 @@ import {
   emptyPortfolioForm,
   type PortfolioFormData,
 } from "@/lib/portfolio";
+import { extOf, readImageSize, removeStoredFile, uploadPortfolioImage } from "@/lib/media";
+import {
+  dedupePreferWebp,
+  isSupportedImage,
+  matchPrefix,
+  readZipImages,
+  usedNames,
+  type NamedImage,
+} from "@/lib/import-images";
 
 export const Route = createFileRoute("/portfolio/import")({
   head: () => ({
@@ -68,10 +77,35 @@ type CsvRow = Record<CsvKey, string>;
 interface RowState {
   data: CsvRow;
   featuredName: string | null;
+  coverIsFallback: boolean;
   galleryNames: string[];
   imageCount: number;
+  warnings: string[];
   error?: string;
   status: "pending" | "importing" | "success" | "failed";
+}
+
+interface ImportFailure {
+  project: string;
+  filename: string;
+  reason: string;
+}
+
+interface ImportReport {
+  projectsProcessed: number;
+  projectsCreated: number;
+  projectsUpdated: number;
+  projectsFailed: number;
+  projectsWithWarnings: number;
+  imagesUploaded: number;
+  imagesSkipped: number;
+  imagesUnmatched: number;
+  imagesMissing: number;
+  imagesFailed: number;
+  featuredExplicit: number;
+  featuredFallback: number;
+  featuredNone: number;
+  failures: ImportFailure[];
 }
 
 function slugify(s: string) {
@@ -83,89 +117,7 @@ function slugify(s: string) {
     .replace(/-+/g, "-");
 }
 
-const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const stripExt = (n: string) => (n.lastIndexOf(".") >= 0 ? n.slice(0, n.lastIndexOf(".")) : n);
-const extOf = (n: string) =>
-  n.lastIndexOf(".") >= 0 ? n.slice(n.lastIndexOf(".") + 1).toLowerCase() : "";
 
-/** webp > jpg/jpeg > png > others when the same basename exists multiple times. */
-function dedupePreferWebp(files: File[]): File[] {
-  const rank = (name: string) => {
-    const e = extOf(name);
-    if (e === "webp") return 4;
-    if (e === "jpg" || e === "jpeg") return 3;
-    if (e === "png") return 2;
-    if (e === "gif" || e === "avif") return 1;
-    return 0;
-  };
-  const byBase = new Map<string, File>();
-  for (const f of files) {
-    const base = stripExt(f.name).toLowerCase();
-    const cur = byBase.get(base);
-    if (!cur || rank(f.name) > rank(cur.name)) byBase.set(base, f);
-  }
-  return [...byBase.values()];
-}
-
-/**
- * Architect57 image rules for a given prefix P:
- *   P_feature / P_hero  → featured image
- *   P_01 … P_NN         → gallery in numeric order
- *   P                   → fallback featured
- */
-function resolveImages(row: CsvRow, deduped: File[]): { featured: File | null; gallery: File[] } {
-  const prefix = row.image_prefix?.trim().toLowerCase();
-  if (prefix) {
-    const featureRe = new RegExp(`^${escapeRegExp(prefix)}[_-](feature|featured|hero|main)$`);
-    const numberRe = new RegExp(`^${escapeRegExp(prefix)}[_-](\\d+)$`);
-    let featured: File | null = null;
-    let exact: File | null = null;
-    const numbered: { n: number; f: File }[] = [];
-    for (const f of deduped) {
-      const base = stripExt(f.name).toLowerCase();
-      if (featureRe.test(base)) {
-        featured = f;
-        continue;
-      }
-      if (base === prefix) {
-        exact = f;
-        continue;
-      }
-      const m = base.match(numberRe);
-      if (m) numbered.push({ n: parseInt(m[1], 10), f });
-    }
-    numbered.sort((a, b) => a.n - b.n);
-    let gallery = numbered.map((x) => x.f);
-    if (!featured) featured = exact;
-    if (!featured && gallery.length) {
-      featured = gallery[0];
-      gallery = gallery.slice(1);
-    }
-    return { featured, gallery };
-  }
-  if (row.image_file) {
-    const f = deduped.find((x) => x.name.toLowerCase() === row.image_file.toLowerCase()) ?? null;
-    return { featured: f, gallery: [] };
-  }
-  return { featured: null, gallery: [] };
-}
-
-function readImageSize(file: File): Promise<{ width: number | null; height: number | null }> {
-  return new Promise((resolve) => {
-    if (typeof window === "undefined") return resolve({ width: null, height: null });
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve({ width: img.naturalWidth || null, height: img.naturalHeight || null });
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve({ width: null, height: null });
-    };
-    img.src = url;
-  });
-}
 
 function splitList(raw: string): string[] {
   return raw
@@ -317,45 +269,69 @@ function BulkImportPage() {
   const qc = useQueryClient();
   const [mode, setMode] = useState<"full" | "translations">("full");
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [images, setImages] = useState<NamedImage[]>([]);
+  const [readingZip, setReadingZip] = useState(false);
+  const [replaceGallery, setReplaceGallery] = useState(false);
   const [rows, setRows] = useState<RowState[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, label: "" });
   const [done, setDone] = useState(false);
+  const [report, setReport] = useState<ImportReport | null>(null);
   const [exporting, setExporting] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const imagesInputRef = useRef<HTMLInputElement>(null);
 
-  const dedupedFiles = useMemo(() => dedupePreferWebp(imageFiles), [imageFiles]);
+  const dedupedImages = useMemo(() => dedupePreferWebp(images), [images]);
+
+  const unmatchedNames = useMemo(() => {
+    if (dedupedImages.length === 0 || rows.length === 0) return [];
+    const matches = rows
+      .map((r) => r.data.image_prefix?.trim())
+      .filter(Boolean)
+      .map((p) => matchPrefix(p as string, dedupedImages));
+    const used = usedNames(matches);
+    return dedupedImages.filter((img) => !used.has(img.name)).map((img) => img.name);
+  }, [dedupedImages, rows]);
 
   const resetImportState = () => {
     setCsvFile(null);
-    setImageFiles([]);
+    setImages([]);
     setRows([]);
     setParseError(null);
     setImporting(false);
     setProgress({ current: 0, total: 0, label: "" });
     setDone(false);
+    setReport(null);
     if (csvInputRef.current) csvInputRef.current.value = "";
     if (imagesInputRef.current) imagesInputRef.current.value = "";
   };
 
-  const reEvaluate = (current: RowState[], deduped: File[]): RowState[] =>
+  const reEvaluate = (current: RowState[], deduped: NamedImage[]): RowState[] =>
     current.map((r) => {
-      const { featured, gallery } = resolveImages(r.data, deduped);
+      const prefix = r.data.image_prefix?.trim();
+      const match = prefix
+        ? matchPrefix(prefix, deduped)
+        : { cover: null, coverIsGalleryFirst: false, gallery: [] as NamedImage[] };
       const expected = parseInt(r.data.expected_gallery_count || "", 10);
-      const imageCount = (featured ? 1 : 0) + gallery.length;
-      let error = r.data.title ? undefined : "Missing title";
-      if (!error && Number.isFinite(expected) && expected > 0 && gallery.length !== expected) {
-        error = undefined; // not fatal — surfaced as a warning in the preview
+      const warnings: string[] = [];
+      if (prefix && !match.cover && match.gallery.length === 0) {
+        warnings.push(`No images match prefix "${prefix}"`);
+      }
+      if (prefix && match.coverIsGalleryFirst) {
+        warnings.push("No -cover file; gallery image 01 will be used as the featured image");
+      }
+      if (Number.isFinite(expected) && expected > 0 && match.gallery.length !== expected) {
+        warnings.push(`Expected ${expected} gallery images, found ${match.gallery.length}`);
       }
       return {
         ...r,
-        featuredName: featured?.name ?? null,
-        galleryNames: gallery.map((g) => g.name),
-        imageCount,
-        error,
+        featuredName: match.cover?.name ?? null,
+        coverIsFallback: match.coverIsGalleryFirst,
+        galleryNames: match.gallery.map((g) => g.name),
+        imageCount: (match.cover ? 1 : 0) + match.gallery.length,
+        warnings,
+        error: r.data.title ? undefined : "Missing title",
       };
     });
 
@@ -389,25 +365,45 @@ function BulkImportPage() {
         return {
           data,
           featuredName: null,
+          coverIsFallback: false,
           galleryNames: [],
           imageCount: 0,
+          warnings: [],
           status: "pending" as const,
           error: data.title ? undefined : "Missing title",
         };
       });
-      setRows(reEvaluate(parsed, dedupedFiles));
+      setRows(reEvaluate(parsed, dedupedImages));
     } catch (err) {
       setParseError(err instanceof Error ? err.message : "Failed to parse CSV");
       setRows([]);
     }
   };
 
-  const handleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImagesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    setImageFiles(files);
-    const deduped = dedupePreferWebp(files);
-    setRows((prev) => reEvaluate(prev, deduped));
     setDone(false);
+    setReadingZip(true);
+    try {
+      const collected: NamedImage[] = [];
+      for (const f of files) {
+        if (f.name.toLowerCase().endsWith(".zip")) {
+          collected.push(...(await readZipImages(f)));
+        } else if (isSupportedImage(f.name)) {
+          collected.push({ name: f.name, file: f });
+        }
+      }
+      setImages(collected);
+      const deduped = dedupePreferWebp(collected);
+      setRows((prev) => reEvaluate(prev, deduped));
+      if (collected.length === 0 && files.length > 0) {
+        toast.error("No supported images found (.jpg, .jpeg, .png, .webp).");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to read images");
+    } finally {
+      setReadingZip(false);
+    }
   };
 
   // --- taxonomy helpers -------------------------------------------------
@@ -492,18 +488,6 @@ function BulkImportPage() {
     return inserted.id;
   };
 
-  const uploadImage = async (file: File): Promise<string> => {
-    if (!selectedClient) throw new Error("No client");
-    const ext = extOf(file.name) || "png";
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const path = `${selectedClient.id}/portfolio/${filename}`;
-    const { error } = await supabase.storage
-      .from("content-images")
-      .upload(path, file, { cacheControl: "3600", upsert: false });
-    if (error) throw error;
-    return supabase.storage.from("content-images").getPublicUrl(path).data.publicUrl;
-  };
-
   // --- import -----------------------------------------------------------
 
   const handleImport = async () => {
@@ -516,15 +500,32 @@ function BulkImportPage() {
       return;
     }
     const needImages = rows.some((r) => r.data.image_prefix || r.data.image_file);
-    if (needImages && imageFiles.length === 0) {
-      toast.error("Please upload the image files referenced by image_prefix.");
+    if (needImages && images.length === 0) {
+      toast.error("Please upload the image files (ZIP or multiple files) referenced by image_prefix.");
       return;
     }
 
     setImporting(true);
     setDone(false);
+    setReport(null);
     const taxonomyCache = new Map<string, string>();
     const next = [...rows];
+    const rep: ImportReport = {
+      projectsProcessed: 0,
+      projectsCreated: 0,
+      projectsUpdated: 0,
+      projectsFailed: 0,
+      projectsWithWarnings: 0,
+      imagesUploaded: 0,
+      imagesSkipped: 0,
+      imagesUnmatched: unmatchedNames.length,
+      imagesMissing: 0,
+      imagesFailed: 0,
+      featuredExplicit: 0,
+      featuredFallback: 0,
+      featuredNone: 0,
+      failures: [],
+    };
 
     const { data: maxRow } = await supabase
       .from("content_items")
@@ -539,98 +540,173 @@ function BulkImportPage() {
 
     for (let i = 0; i < next.length; i++) {
       const row = next[i];
-      setProgress({ current: i, total: next.length, label: row.data.title || `Row ${i + 1}` });
+      const title = row.data.title || `Row ${i + 1}`;
+      setProgress({ current: i, total: next.length, label: title });
       if (!row.data.title) {
         next[i] = { ...row, status: "failed", error: "Missing title" };
+        rep.projectsFailed++;
         setRows([...next]);
         continue;
       }
       next[i] = { ...row, status: "importing" };
       setRows([...next]);
+      rep.projectsProcessed++;
+      if (row.warnings.length > 0) rep.projectsWithWarnings++;
 
       try {
-        const { featured, gallery } = resolveImages(row.data, dedupedFiles);
+        const prefix = row.data.image_prefix?.trim();
+        const match = prefix
+          ? matchPrefix(prefix, dedupedImages)
+          : { cover: null, coverIsGalleryFirst: false, gallery: [] as NamedImage[] };
 
-        // 1) featured image
-        const featuredUrl = featured ? await uploadImage(featured) : null;
-
-        // 2) content_items + portfolio_details
-        const formData = rowToFormData(row.data, baseSort + i);
-        if (featuredUrl) formData.featured_image_url = featuredUrl;
-        const contentId = await createPortfolio(selectedClient.id, formData);
-
-        // 3) taxonomy: Category → Tag 1 → Tag 2
-        const catId = await ensureCategory(row.data.category, row.data.category_zh, taxonomyCache);
-        if (catId) {
-          await supabase
-            .from("content_categories")
-            .insert({ content_id: contentId, category_id: catId });
+        // Ordered list of unique images: cover first, then gallery (never duplicated).
+        const ordered: { img: NamedImage; featured: boolean }[] = [];
+        if (match.cover) ordered.push({ img: match.cover, featured: true });
+        for (const g of match.gallery) {
+          if (match.cover && g.name === match.cover.name) continue;
+          ordered.push({ img: g, featured: false });
         }
-        const tag1Id = await ensureTag(
-          row.data.tag_1, row.data.tag_1_zh, 1, catId, null, taxonomyCache,
-        );
-        if (tag1Id) {
-          await supabase.from("content_tags").insert({ content_id: contentId, tag_id: tag1Id });
+        if (match.cover) {
+          if (match.coverIsGalleryFirst) rep.featuredFallback++;
+          else rep.featuredExplicit++;
+        } else {
+          rep.featuredNone++;
         }
-        if (tag1Id) {
-          const tag2Names = splitList(row.data.tag_2);
-          const tag2Zh = splitList(row.data.tag_2_zh);
-          for (let t = 0; t < tag2Names.length; t++) {
-            const tag2Id = await ensureTag(
-              tag2Names[t], tag2Zh[t] ?? "", 2, catId, tag1Id, taxonomyCache,
-            );
-            if (tag2Id) {
-              await supabase.from("content_tags").insert({ content_id: contentId, tag_id: tag2Id });
+        const expected = parseInt(row.data.expected_gallery_count || "", 10);
+        if (Number.isFinite(expected) && expected > 0 && match.gallery.length < expected) {
+          rep.imagesMissing += expected - match.gallery.length;
+        }
+
+        // 1) find or create the project (match by client + slug so re-runs add images)
+        const slug = row.data.slug || slugify(row.data.title);
+        const { data: existingItem } = await supabase
+          .from("content_items")
+          .select("id")
+          .eq("client_id", selectedClient.id)
+          .eq("content_type", "portfolio")
+          .eq("slug", slug)
+          .limit(1)
+          .maybeSingle();
+
+        let contentId: string;
+        let created = false;
+        if (existingItem?.id) {
+          contentId = existingItem.id as string;
+          rep.projectsUpdated++;
+        } else {
+          const formData = rowToFormData(row.data, baseSort + i);
+          formData.slug = slug;
+          contentId = await createPortfolio(selectedClient.id, formData);
+          created = true;
+          rep.projectsCreated++;
+        }
+
+        // 2) taxonomy: Category → Tag 1 → Tag 2 (only for newly created projects)
+        if (created) {
+          const catId = await ensureCategory(row.data.category, row.data.category_zh, taxonomyCache);
+          if (catId) {
+            await supabase
+              .from("content_categories")
+              .insert({ content_id: contentId, category_id: catId });
+          }
+          const tag1Id = await ensureTag(
+            row.data.tag_1, row.data.tag_1_zh, 1, catId, null, taxonomyCache,
+          );
+          if (tag1Id) {
+            await supabase.from("content_tags").insert({ content_id: contentId, tag_id: tag1Id });
+            const tag2Names = splitList(row.data.tag_2);
+            const tag2Zh = splitList(row.data.tag_2_zh);
+            for (let t = 0; t < tag2Names.length; t++) {
+              const tag2Id = await ensureTag(
+                tag2Names[t], tag2Zh[t] ?? "", 2, catId, tag1Id, taxonomyCache,
+              );
+              if (tag2Id) {
+                await supabase.from("content_tags").insert({ content_id: contentId, tag_id: tag2Id });
+              }
             }
           }
         }
 
-        // 4) media_assets (featured first, then the numbered gallery)
-        const assetRows: Record<string, unknown>[] = [];
-        if (featured && featuredUrl) {
-          const size = await readImageSize(featured);
-          assetRows.push({
-            client_id: selectedClient.id,
-            content_id: contentId,
-            file_url: featuredUrl,
-            file_type: featured.type || `image/${extOf(featured.name)}`,
-            original_filename: featured.name,
-            width_px: size.width,
-            height_px: size.height,
-            alt_text: row.data.title,
-            alt_text_zh: row.data.title_zh || null,
-            image_credit: row.data.photographer || null,
-            is_featured: true,
-            sort_order: 0,
-          });
+        // 3) existing gallery (skip duplicates, or wipe when replacing)
+        if (replaceGallery) {
+          const { data: old } = await supabase
+            .from("media_assets")
+            .select("id, file_url")
+            .eq("content_id", contentId);
+          for (const o of old ?? []) {
+            await removeStoredFile((o as { file_url: string }).file_url);
+          }
+          await supabase.from("media_assets").delete().eq("content_id", contentId);
         }
-        for (let g = 0; g < gallery.length; g++) {
-          const gFile = gallery[g];
-          const gUrl = await uploadImage(gFile);
-          const size = await readImageSize(gFile);
-          assetRows.push({
-            client_id: selectedClient.id,
-            content_id: contentId,
-            file_url: gUrl,
-            file_type: gFile.type || `image/${extOf(gFile.name)}`,
-            original_filename: gFile.name,
-            width_px: size.width,
-            height_px: size.height,
-            alt_text: `${row.data.title} — ${g + 1}`,
-            alt_text_zh: row.data.title_zh ? `${row.data.title_zh} — ${g + 1}` : null,
-            image_credit: row.data.photographer || null,
-            is_featured: false,
-            sort_order: g + 1,
-          });
+        const { data: existingAssets } = await supabase
+          .from("media_assets")
+          .select("original_filename, sort_order")
+          .eq("content_id", contentId);
+        const existingNames = new Set(
+          (existingAssets ?? [])
+            .map((a) => (a as { original_filename: string | null }).original_filename)
+            .filter(Boolean)
+            .map((n) => (n as string).toLowerCase()),
+        );
+        let sortCursor =
+          (existingAssets ?? []).reduce(
+            (max, a) => Math.max(max, (a as { sort_order: number | null }).sort_order ?? 0),
+            0,
+          ) + 1;
+
+        // 4) upload each image, then insert its media_assets row
+        let featuredUrl: string | null = null;
+        for (const entry of ordered) {
+          if (existingNames.has(entry.img.name.toLowerCase())) {
+            rep.imagesSkipped++;
+            continue;
+          }
+          try {
+            const url = await uploadPortfolioImage(selectedClient.id, entry.img.file);
+            const size = await readImageSize(entry.img.file);
+            const { error: insErr } = await supabase.from("media_assets").insert({
+              client_id: selectedClient.id,
+              content_id: contentId,
+              file_url: url,
+              file_type: entry.img.file.type || `image/${extOf(entry.img.name)}`,
+              original_filename: entry.img.name,
+              width_px: size.width,
+              height_px: size.height,
+              alt_text: row.data.title,
+              alt_text_zh: row.data.title_zh || null,
+              image_credit: row.data.photographer || null,
+              is_featured: entry.featured,
+              sort_order: entry.featured ? 0 : sortCursor++,
+            });
+            if (insErr) throw insErr;
+            if (entry.featured) featuredUrl = url;
+            rep.imagesUploaded++;
+          } catch (imgErr) {
+            rep.imagesFailed++;
+            rep.failures.push({
+              project: title,
+              filename: entry.img.name,
+              reason: imgErr instanceof Error ? imgErr.message : "Upload failed",
+            });
+          }
         }
-        if (assetRows.length > 0) {
-          const { error } = await supabase.from("media_assets").insert(assetRows);
-          if (error) throw error;
+
+        if (featuredUrl) {
+          await supabase
+            .from("content_items")
+            .update({ featured_image_url: featuredUrl })
+            .eq("id", contentId);
         }
 
         next[i] = { ...row, status: "success", error: undefined };
       } catch (err) {
         console.error("[import] row failed", row.data.title, err);
+        rep.projectsFailed++;
+        rep.failures.push({
+          project: title,
+          filename: "—",
+          reason: err instanceof Error ? err.message : "Unknown error",
+        });
         next[i] = {
           ...row,
           status: "failed",
@@ -638,16 +714,17 @@ function BulkImportPage() {
         };
       }
       setRows([...next]);
-      setProgress({ current: i + 1, total: next.length, label: row.data.title });
+      setProgress({ current: i + 1, total: next.length, label: title });
     }
 
     setImporting(false);
+    setReport(rep);
     setDone(true);
     qc.invalidateQueries({ queryKey: ["portfolio", selectedClient.id] });
     qc.invalidateQueries({ queryKey: ["dashboard-stats", selectedClient.id] });
-    const ok = next.filter((r) => r.status === "success").length;
-    const fail = next.filter((r) => r.status === "failed").length;
-    toast.success(`Imported ${ok}, failed ${fail}`);
+    toast.success(
+      `Imported ${rep.projectsCreated + rep.projectsUpdated} project(s), ${rep.imagesUploaded} image(s)`,
+    );
   };
 
   // --- export -----------------------------------------------------------
@@ -875,27 +952,63 @@ function BulkImportPage() {
 
         <div className="rounded-lg border p-4">
           <Label className="mb-2 flex items-center gap-2 text-sm font-medium">
-            <ImageIcon className="h-4 w-4" /> Images (multiple)
+            <ImageIcon className="h-4 w-4" /> Images (ZIP or multiple files)
           </Label>
           <input
             ref={imagesInputRef}
             type="file"
-            accept="image/*"
+            accept=".zip,application/zip,image/*"
             multiple
             onChange={handleImagesChange}
             className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-primary-foreground hover:file:bg-primary/90"
           />
-          {imageFiles.length > 0 && (
+          {readingZip && (
+            <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Reading ZIP…
+            </p>
+          )}
+          {images.length > 0 && (
             <p className="mt-2 text-xs text-muted-foreground">
-              {imageFiles.length} selected · {dedupedFiles.length} after de-duping (webp preferred)
+              {images.length} image(s) · {dedupedImages.length} after de-duping (webp preferred)
             </p>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
-            Matching by <code>image_prefix</code>: <code>{"{prefix}_feature"}</code> = hero,{" "}
-            <code>{"{prefix}_01..NN"}</code> = gallery in order.
+            Naming: <code>{"{image_prefix}-cover.jpg"}</code> = featured,{" "}
+            <code>{"{image_prefix}-01.jpg … -NN.jpg"}</code> = gallery in numeric order.
+            <code>.jpg .jpeg .png .webp</code>, case-insensitive. Without a
+            <code>-cover</code> file, gallery image 01 becomes the featured image (not duplicated).
           </p>
+          <label className="mt-3 flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={replaceGallery}
+              onChange={(e) => setReplaceGallery(e.target.checked)}
+            />
+            Replace existing gallery for matched projects (destructive)
+          </label>
+          {replaceGallery && (
+            <p className="mt-1 text-xs text-destructive">
+              Existing gallery images of matched projects will be deleted before import.
+            </p>
+          )}
         </div>
       </div>
+
+      {unmatchedNames.length > 0 && (
+        <div className="rounded-lg border border-amber-500/40 p-4">
+          <p className="text-sm font-medium text-amber-600">
+            UNMATCHED IMAGES ({unmatchedNames.length})
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            These files match no <code>image_prefix</code> and will not be imported.
+          </p>
+          <ul className="mt-2 grid grid-cols-2 gap-x-4 text-xs text-muted-foreground md:grid-cols-3">
+            {unmatchedNames.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {importing && (
         <div className="rounded-lg border p-4">
@@ -954,22 +1067,44 @@ function BulkImportPage() {
                       <TableCell className="text-xs">
                         {[r.data.city, r.data.province].filter(Boolean).join(", ") || r.data.location || "—"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top">
                         {r.data.image_prefix || r.data.image_file ? (
-                          r.imageCount > 0 ? (
-                            <span
-                              className={`inline-flex items-center gap-1 text-xs ${mismatch ? "text-amber-600" : "text-green-600"}`}
-                            >
-                              <CheckCircle2 className="h-3 w-3" />
-                              {r.featuredName ? "1 hero" : "no hero"} + {r.galleryNames.length} gallery
-                              {mismatch ? ` (expected ${expected})` : ""}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs text-destructive">
-                              <XCircle className="h-3 w-3" /> no match for "
-                              {r.data.image_prefix || r.data.image_file}"
-                            </span>
-                          )
+                          <div className="space-y-1 text-xs">
+                            <div>
+                              Cover:{" "}
+                              {r.featuredName ? (
+                                <span className="text-green-600">
+                                  ✓ {r.featuredName}
+                                  {r.coverIsFallback ? " (fallback)" : ""}
+                                </span>
+                              ) : (
+                                <span className="text-destructive">Not Found</span>
+                              )}
+                            </div>
+                            <div className={mismatch ? "text-amber-600" : "text-green-600"}>
+                              Gallery: {r.galleryNames.length}
+                              {Number.isFinite(expected) && expected > 0 ? ` / ${expected}` : ""}
+                            </div>
+                            {r.galleryNames.length > 0 && (
+                              <ul className="text-muted-foreground">
+                                {r.galleryNames.map((n, gi) => (
+                                  <li key={n}>
+                                    {String(gi + 1).padStart(2, "0")} {n}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            {r.imageCount === 0 && (
+                              <span className="inline-flex items-center gap-1 text-destructive">
+                                <XCircle className="h-3 w-3" /> No matching images found
+                              </span>
+                            )}
+                            {r.warnings.map((w) => (
+                              <div key={w} className="text-amber-600">
+                                WARNING: {w}
+                              </div>
+                            ))}
+                          </div>
                         ) : (
                           <span className="text-xs text-muted-foreground">none</span>
                         )}
@@ -1005,13 +1140,68 @@ function BulkImportPage() {
         </div>
       )}
 
-      {done && (
-        <div className="rounded-lg border p-4">
+      {done && report && (
+        <div className="space-y-3 rounded-lg border p-4">
           <p className="font-medium">Import complete</p>
-          <p className="mt-1 text-sm text-green-600">Successfully imported: {successCount}</p>
-          <p className="text-sm text-destructive">Failed: {failedCount}</p>
+          <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
+            <div>
+              <p className="font-medium">PROJECTS</p>
+              <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                <li>{report.projectsProcessed} processed</li>
+                <li>{report.projectsCreated} created</li>
+                <li>{report.projectsUpdated} matched existing (images added)</li>
+                <li>{report.projectsFailed} failed</li>
+                <li>{report.projectsWithWarnings} with warnings</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium">IMAGES</p>
+              <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                <li>{report.imagesUploaded} uploaded</li>
+                <li>{report.imagesSkipped} already existed</li>
+                <li>{report.imagesUnmatched} unmatched</li>
+                <li>{report.imagesMissing} missing versus expected counts</li>
+                <li>{report.imagesFailed} failed</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium">FEATURED IMAGES</p>
+              <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                <li>{report.featuredExplicit} explicit cover images</li>
+                <li>{report.featuredFallback} fallback to gallery image 01</li>
+                <li>{report.featuredNone} projects without images</li>
+              </ul>
+            </div>
+          </div>
+
+          {report.failures.length > 0 && (
+            <div>
+              <p className="text-sm font-medium text-destructive">FAILED FILES</p>
+              <div className="mt-1 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Filename</TableHead>
+                      <TableHead>Reason</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {report.failures.map((f, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs">{f.project}</TableCell>
+                        <TableCell className="text-xs">{f.filename}</TableCell>
+                        <TableCell className="text-xs text-destructive">{f.reason}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
           {failedCount > 0 && (
-            <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground">
+            <ul className="list-disc pl-5 text-xs text-muted-foreground">
               {rows
                 .filter((r) => r.status === "failed")
                 .map((r, i) => (
