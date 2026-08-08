@@ -954,22 +954,44 @@ function BulkImportPage() {
                       <TableCell className="text-xs">
                         {[r.data.city, r.data.province].filter(Boolean).join(", ") || r.data.location || "—"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top">
                         {r.data.image_prefix || r.data.image_file ? (
-                          r.imageCount > 0 ? (
-                            <span
-                              className={`inline-flex items-center gap-1 text-xs ${mismatch ? "text-amber-600" : "text-green-600"}`}
-                            >
-                              <CheckCircle2 className="h-3 w-3" />
-                              {r.featuredName ? "1 hero" : "no hero"} + {r.galleryNames.length} gallery
-                              {mismatch ? ` (expected ${expected})` : ""}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs text-destructive">
-                              <XCircle className="h-3 w-3" /> no match for "
-                              {r.data.image_prefix || r.data.image_file}"
-                            </span>
-                          )
+                          <div className="space-y-1 text-xs">
+                            <div>
+                              Cover:{" "}
+                              {r.featuredName ? (
+                                <span className="text-green-600">
+                                  ✓ {r.featuredName}
+                                  {r.coverIsFallback ? " (fallback)" : ""}
+                                </span>
+                              ) : (
+                                <span className="text-destructive">Not Found</span>
+                              )}
+                            </div>
+                            <div className={mismatch ? "text-amber-600" : "text-green-600"}>
+                              Gallery: {r.galleryNames.length}
+                              {Number.isFinite(expected) && expected > 0 ? ` / ${expected}` : ""}
+                            </div>
+                            {r.galleryNames.length > 0 && (
+                              <ul className="text-muted-foreground">
+                                {r.galleryNames.map((n, gi) => (
+                                  <li key={n}>
+                                    {String(gi + 1).padStart(2, "0")} {n}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            {r.imageCount === 0 && (
+                              <span className="inline-flex items-center gap-1 text-destructive">
+                                <XCircle className="h-3 w-3" /> No matching images found
+                              </span>
+                            )}
+                            {r.warnings.map((w) => (
+                              <div key={w} className="text-amber-600">
+                                WARNING: {w}
+                              </div>
+                            ))}
+                          </div>
                         ) : (
                           <span className="text-xs text-muted-foreground">none</span>
                         )}
