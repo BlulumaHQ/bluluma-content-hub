@@ -31,6 +31,15 @@ import {
   emptyPortfolioForm,
   type PortfolioFormData,
 } from "@/lib/portfolio";
+import { extOf, readImageSize, removeStoredFile, uploadPortfolioImage } from "@/lib/media";
+import {
+  dedupePreferWebp,
+  isSupportedImage,
+  matchPrefix,
+  readZipImages,
+  usedNames,
+  type NamedImage,
+} from "@/lib/import-images";
 
 export const Route = createFileRoute("/portfolio/import")({
   head: () => ({
