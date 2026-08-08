@@ -26,6 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import TranslationImport from "@/components/portfolio/TranslationImport";
+import GalleryUpdateImport from "@/components/portfolio/GalleryUpdateImport";
 import {
   createPortfolio,
   emptyPortfolioForm,
@@ -267,7 +268,7 @@ function rowToFormData(row: CsvRow, sortOrder: number): PortfolioFormData {
 function BulkImportPage() {
   const { selectedClient } = useClientContext();
   const qc = useQueryClient();
-  const [mode, setMode] = useState<"full" | "translations">("full");
+  const [mode, setMode] = useState<"full" | "gallery" | "translations">("full");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [images, setImages] = useState<NamedImage[]>([]);
   const [readingZip, setReadingZip] = useState(false);
@@ -877,6 +878,13 @@ function BulkImportPage() {
       </Button>
       <Button
         size="sm"
+        variant={mode === "gallery" ? "default" : "ghost"}
+        onClick={() => setMode("gallery")}
+      >
+        Update Existing Projects Only
+      </Button>
+      <Button
+        size="sm"
         variant={mode === "translations" ? "default" : "ghost"}
         onClick={() => setMode("translations")}
       >
@@ -885,17 +893,22 @@ function BulkImportPage() {
     </div>
   );
 
-  if (mode === "translations") {
+  if (mode === "translations" || mode === "gallery") {
     return (
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Bulk Import Portfolio</h1>
           <div className="mt-3">{modeSwitch}</div>
         </div>
-        <TranslationImport client={selectedClient} />
+        {mode === "gallery" ? (
+          <GalleryUpdateImport client={selectedClient} />
+        ) : (
+          <TranslationImport client={selectedClient} />
+        )}
       </div>
     );
   }
+
 
   return (
     <div className="space-y-6">
