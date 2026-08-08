@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import TranslationImport from "@/components/portfolio/TranslationImport";
 import GalleryUpdateImport from "@/components/portfolio/GalleryUpdateImport";
+import MetadataUpdateImport from "@/components/portfolio/MetadataUpdateImport";
 import {
   createPortfolio,
   emptyPortfolioForm,
@@ -268,7 +269,7 @@ function rowToFormData(row: CsvRow, sortOrder: number): PortfolioFormData {
 function BulkImportPage() {
   const { selectedClient } = useClientContext();
   const qc = useQueryClient();
-  const [mode, setMode] = useState<"full" | "gallery" | "translations">("full");
+  const [mode, setMode] = useState<"full" | "gallery" | "metadata" | "translations">("full");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [images, setImages] = useState<NamedImage[]>([]);
   const [readingZip, setReadingZip] = useState(false);
@@ -885,6 +886,13 @@ function BulkImportPage() {
       </Button>
       <Button
         size="sm"
+        variant={mode === "metadata" ? "default" : "ghost"}
+        onClick={() => setMode("metadata")}
+      >
+        Update Existing Project Metadata
+      </Button>
+      <Button
+        size="sm"
         variant={mode === "translations" ? "default" : "ghost"}
         onClick={() => setMode("translations")}
       >
@@ -893,7 +901,7 @@ function BulkImportPage() {
     </div>
   );
 
-  if (mode === "translations" || mode === "gallery") {
+  if (mode === "translations" || mode === "gallery" || mode === "metadata") {
     return (
       <div className="space-y-6">
         <div>
@@ -902,6 +910,8 @@ function BulkImportPage() {
         </div>
         {mode === "gallery" ? (
           <GalleryUpdateImport client={selectedClient} />
+        ) : mode === "metadata" ? (
+          <MetadataUpdateImport client={selectedClient} />
         ) : (
           <TranslationImport client={selectedClient} />
         )}
