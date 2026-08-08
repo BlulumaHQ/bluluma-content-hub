@@ -236,45 +236,69 @@ function BulkImportPage() {
   const qc = useQueryClient();
   const [mode, setMode] = useState<"full" | "translations">("full");
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [images, setImages] = useState<NamedImage[]>([]);
+  const [readingZip, setReadingZip] = useState(false);
+  const [replaceGallery, setReplaceGallery] = useState(false);
   const [rows, setRows] = useState<RowState[]>([]);
   const [parseError, setParseError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, label: "" });
   const [done, setDone] = useState(false);
+  const [report, setReport] = useState<ImportReport | null>(null);
   const [exporting, setExporting] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const imagesInputRef = useRef<HTMLInputElement>(null);
 
-  const dedupedFiles = useMemo(() => dedupePreferWebp(imageFiles), [imageFiles]);
+  const dedupedImages = useMemo(() => dedupePreferWebp(images), [images]);
+
+  const unmatchedNames = useMemo(() => {
+    if (dedupedImages.length === 0 || rows.length === 0) return [];
+    const matches = rows
+      .map((r) => r.data.image_prefix?.trim())
+      .filter(Boolean)
+      .map((p) => matchPrefix(p as string, dedupedImages));
+    const used = usedNames(matches);
+    return dedupedImages.filter((img) => !used.has(img.name)).map((img) => img.name);
+  }, [dedupedImages, rows]);
 
   const resetImportState = () => {
     setCsvFile(null);
-    setImageFiles([]);
+    setImages([]);
     setRows([]);
     setParseError(null);
     setImporting(false);
     setProgress({ current: 0, total: 0, label: "" });
     setDone(false);
+    setReport(null);
     if (csvInputRef.current) csvInputRef.current.value = "";
     if (imagesInputRef.current) imagesInputRef.current.value = "";
   };
 
-  const reEvaluate = (current: RowState[], deduped: File[]): RowState[] =>
+  const reEvaluate = (current: RowState[], deduped: NamedImage[]): RowState[] =>
     current.map((r) => {
-      const { featured, gallery } = resolveImages(r.data, deduped);
+      const prefix = r.data.image_prefix?.trim();
+      const match = prefix
+        ? matchPrefix(prefix, deduped)
+        : { cover: null, coverIsGalleryFirst: false, gallery: [] as NamedImage[] };
       const expected = parseInt(r.data.expected_gallery_count || "", 10);
-      const imageCount = (featured ? 1 : 0) + gallery.length;
-      let error = r.data.title ? undefined : "Missing title";
-      if (!error && Number.isFinite(expected) && expected > 0 && gallery.length !== expected) {
-        error = undefined; // not fatal — surfaced as a warning in the preview
+      const warnings: string[] = [];
+      if (prefix && !match.cover && match.gallery.length === 0) {
+        warnings.push(`No images match prefix "${prefix}"`);
+      }
+      if (prefix && match.coverIsGalleryFirst) {
+        warnings.push("No -cover file; gallery image 01 will be used as the featured image");
+      }
+      if (Number.isFinite(expected) && expected > 0 && match.gallery.length !== expected) {
+        warnings.push(`Expected ${expected} gallery images, found ${match.gallery.length}`);
       }
       return {
         ...r,
-        featuredName: featured?.name ?? null,
-        galleryNames: gallery.map((g) => g.name),
-        imageCount,
-        error,
+        featuredName: match.cover?.name ?? null,
+        coverIsFallback: match.coverIsGalleryFirst,
+        galleryNames: match.gallery.map((g) => g.name),
+        imageCount: (match.cover ? 1 : 0) + match.gallery.length,
+        warnings,
+        error: r.data.title ? undefined : "Missing title",
       };
     });
 
@@ -308,25 +332,45 @@ function BulkImportPage() {
         return {
           data,
           featuredName: null,
+          coverIsFallback: false,
           galleryNames: [],
           imageCount: 0,
+          warnings: [],
           status: "pending" as const,
           error: data.title ? undefined : "Missing title",
         };
       });
-      setRows(reEvaluate(parsed, dedupedFiles));
+      setRows(reEvaluate(parsed, dedupedImages));
     } catch (err) {
       setParseError(err instanceof Error ? err.message : "Failed to parse CSV");
       setRows([]);
     }
   };
 
-  const handleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImagesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    setImageFiles(files);
-    const deduped = dedupePreferWebp(files);
-    setRows((prev) => reEvaluate(prev, deduped));
     setDone(false);
+    setReadingZip(true);
+    try {
+      const collected: NamedImage[] = [];
+      for (const f of files) {
+        if (f.name.toLowerCase().endsWith(".zip")) {
+          collected.push(...(await readZipImages(f)));
+        } else if (isSupportedImage(f.name)) {
+          collected.push({ name: f.name, file: f });
+        }
+      }
+      setImages(collected);
+      const deduped = dedupePreferWebp(collected);
+      setRows((prev) => reEvaluate(prev, deduped));
+      if (collected.length === 0 && files.length > 0) {
+        toast.error("No supported images found (.jpg, .jpeg, .png, .webp).");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to read images");
+    } finally {
+      setReadingZip(false);
+    }
   };
 
   // --- taxonomy helpers -------------------------------------------------
