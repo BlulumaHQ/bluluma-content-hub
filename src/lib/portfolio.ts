@@ -105,7 +105,7 @@ export function emptyPortfolioForm(): PortfolioFormData {
     status: "draft", is_featured: false, sort_order: 0,
     seo_title: "", seo_title_zh: "", seo_description: "", seo_description_zh: "",
     live_url: "", services: [], project_year: "", short_summary: "",
-    location: "", role: "", city: "", province: "", country: "",
+    location: "", role: "", architect_roles: [], city: "", province: "", country: "",
     project_status: "", year_started: "", year_completed: "",
     floor_area_value: "", floor_area_unit: "sq ft", site_area_value: "",
     site_area_unit: "sq ft", units_count: "", storeys_count: "",
@@ -147,6 +147,7 @@ export function portfolioFormFrom(item: PortfolioItem): PortfolioFormData {
     short_summary: s(d?.short_summary),
     location: s(d?.location),
     role: s(d?.role),
+    architect_roles: Array.isArray(d?.architect_roles) ? d.architect_roles : [],
     city: s(d?.city),
     province: s(d?.province),
     country: s(d?.country),
@@ -222,6 +223,16 @@ export function buildDetailsPayload(data: PortfolioFormData) {
     short_summary: txt(data.short_summary),
     location: txt(data.location),
     role: txt(data.role),
+    architect_roles: Array.isArray(data.architect_roles)
+      ? Array.from(
+          new Map(
+            data.architect_roles
+              .map((r) => String(r).trim())
+              .filter(Boolean)
+              .map((r) => [r.toLowerCase(), r]),
+          ).values(),
+        )
+      : [],
     city: txt(data.city),
     province: txt(data.province),
     country: txt(data.country),
