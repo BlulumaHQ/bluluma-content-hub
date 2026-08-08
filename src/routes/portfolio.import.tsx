@@ -68,10 +68,35 @@ type CsvRow = Record<CsvKey, string>;
 interface RowState {
   data: CsvRow;
   featuredName: string | null;
+  coverIsFallback: boolean;
   galleryNames: string[];
   imageCount: number;
+  warnings: string[];
   error?: string;
   status: "pending" | "importing" | "success" | "failed";
+}
+
+interface ImportFailure {
+  project: string;
+  filename: string;
+  reason: string;
+}
+
+interface ImportReport {
+  projectsProcessed: number;
+  projectsCreated: number;
+  projectsUpdated: number;
+  projectsFailed: number;
+  projectsWithWarnings: number;
+  imagesUploaded: number;
+  imagesSkipped: number;
+  imagesUnmatched: number;
+  imagesMissing: number;
+  imagesFailed: number;
+  featuredExplicit: number;
+  featuredFallback: number;
+  featuredNone: number;
+  failures: ImportFailure[];
 }
 
 function slugify(s: string) {
@@ -83,7 +108,6 @@ function slugify(s: string) {
     .replace(/-+/g, "-");
 }
 
-function slugifyUnused() {}
 
 
 function splitList(raw: string): string[] {
