@@ -5,6 +5,22 @@ import { Upload, X, Loader2, ChevronDown } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
 import { TagInput } from "@/components/ui/TagInput";
+import { CreatableMultiSelect } from "@/components/ui/CreatableMultiSelect";
+
+const ARCHITECT_ROLE_OPTIONS = [
+  "Architectural Design",
+  "Architect of Record",
+  "Building Code Consultation",
+  "Envelope Design",
+  "Interior Design",
+  "Building Information Modelling (BIM)",
+  "Project Management",
+  "Design Development",
+  "Construction Documentation",
+  "Construction Administration",
+  "Master Planning",
+  "Urban Design",
+];
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -347,6 +363,15 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
 
       {/* 5. Credits */}
       <Section title="5. Project Credits">
+        <div className="space-y-1.5">
+          <Label>Architect Role</Label>
+          <CreatableMultiSelect
+            values={form.architect_roles}
+            options={ARCHITECT_ROLE_OPTIONS}
+            onChange={(v) => set("architect_roles", v)}
+            placeholder="Type a custom role and press Enter"
+          />
+        </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field name="design_architect" label="Design Architect" />
           <Field name="architect_of_record" label="Architect of Record" />
