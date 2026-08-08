@@ -411,18 +411,6 @@ function BulkImportPage() {
     return inserted.id;
   };
 
-  const uploadImage = async (file: File): Promise<string> => {
-    if (!selectedClient) throw new Error("No client");
-    const ext = extOf(file.name) || "png";
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const path = `${selectedClient.id}/portfolio/${filename}`;
-    const { error } = await supabase.storage
-      .from("content-images")
-      .upload(path, file, { cacheControl: "3600", upsert: false });
-    if (error) throw error;
-    return supabase.storage.from("content-images").getPublicUrl(path).data.publicUrl;
-  };
-
   // --- import -----------------------------------------------------------
 
   const handleImport = async () => {
@@ -435,15 +423,32 @@ function BulkImportPage() {
       return;
     }
     const needImages = rows.some((r) => r.data.image_prefix || r.data.image_file);
-    if (needImages && imageFiles.length === 0) {
-      toast.error("Please upload the image files referenced by image_prefix.");
+    if (needImages && images.length === 0) {
+      toast.error("Please upload the image files (ZIP or multiple files) referenced by image_prefix.");
       return;
     }
 
     setImporting(true);
     setDone(false);
+    setReport(null);
     const taxonomyCache = new Map<string, string>();
     const next = [...rows];
+    const rep: ImportReport = {
+      projectsProcessed: 0,
+      projectsCreated: 0,
+      projectsUpdated: 0,
+      projectsFailed: 0,
+      projectsWithWarnings: 0,
+      imagesUploaded: 0,
+      imagesSkipped: 0,
+      imagesUnmatched: unmatchedNames.length,
+      imagesMissing: 0,
+      imagesFailed: 0,
+      featuredExplicit: 0,
+      featuredFallback: 0,
+      featuredNone: 0,
+      failures: [],
+    };
 
     const { data: maxRow } = await supabase
       .from("content_items")
@@ -458,98 +463,173 @@ function BulkImportPage() {
 
     for (let i = 0; i < next.length; i++) {
       const row = next[i];
-      setProgress({ current: i, total: next.length, label: row.data.title || `Row ${i + 1}` });
+      const title = row.data.title || `Row ${i + 1}`;
+      setProgress({ current: i, total: next.length, label: title });
       if (!row.data.title) {
         next[i] = { ...row, status: "failed", error: "Missing title" };
+        rep.projectsFailed++;
         setRows([...next]);
         continue;
       }
       next[i] = { ...row, status: "importing" };
       setRows([...next]);
+      rep.projectsProcessed++;
+      if (row.warnings.length > 0) rep.projectsWithWarnings++;
 
       try {
-        const { featured, gallery } = resolveImages(row.data, dedupedFiles);
+        const prefix = row.data.image_prefix?.trim();
+        const match = prefix
+          ? matchPrefix(prefix, dedupedImages)
+          : { cover: null, coverIsGalleryFirst: false, gallery: [] as NamedImage[] };
 
-        // 1) featured image
-        const featuredUrl = featured ? await uploadImage(featured) : null;
-
-        // 2) content_items + portfolio_details
-        const formData = rowToFormData(row.data, baseSort + i);
-        if (featuredUrl) formData.featured_image_url = featuredUrl;
-        const contentId = await createPortfolio(selectedClient.id, formData);
-
-        // 3) taxonomy: Category → Tag 1 → Tag 2
-        const catId = await ensureCategory(row.data.category, row.data.category_zh, taxonomyCache);
-        if (catId) {
-          await supabase
-            .from("content_categories")
-            .insert({ content_id: contentId, category_id: catId });
+        // Ordered list of unique images: cover first, then gallery (never duplicated).
+        const ordered: { img: NamedImage; featured: boolean }[] = [];
+        if (match.cover) ordered.push({ img: match.cover, featured: true });
+        for (const g of match.gallery) {
+          if (match.cover && g.name === match.cover.name) continue;
+          ordered.push({ img: g, featured: false });
         }
-        const tag1Id = await ensureTag(
-          row.data.tag_1, row.data.tag_1_zh, 1, catId, null, taxonomyCache,
-        );
-        if (tag1Id) {
-          await supabase.from("content_tags").insert({ content_id: contentId, tag_id: tag1Id });
+        if (match.cover) {
+          if (match.coverIsGalleryFirst) rep.featuredFallback++;
+          else rep.featuredExplicit++;
+        } else {
+          rep.featuredNone++;
         }
-        if (tag1Id) {
-          const tag2Names = splitList(row.data.tag_2);
-          const tag2Zh = splitList(row.data.tag_2_zh);
-          for (let t = 0; t < tag2Names.length; t++) {
-            const tag2Id = await ensureTag(
-              tag2Names[t], tag2Zh[t] ?? "", 2, catId, tag1Id, taxonomyCache,
-            );
-            if (tag2Id) {
-              await supabase.from("content_tags").insert({ content_id: contentId, tag_id: tag2Id });
+        const expected = parseInt(row.data.expected_gallery_count || "", 10);
+        if (Number.isFinite(expected) && expected > 0 && match.gallery.length < expected) {
+          rep.imagesMissing += expected - match.gallery.length;
+        }
+
+        // 1) find or create the project (match by client + slug so re-runs add images)
+        const slug = row.data.slug || slugify(row.data.title);
+        const { data: existingItem } = await supabase
+          .from("content_items")
+          .select("id")
+          .eq("client_id", selectedClient.id)
+          .eq("content_type", "portfolio")
+          .eq("slug", slug)
+          .limit(1)
+          .maybeSingle();
+
+        let contentId: string;
+        let created = false;
+        if (existingItem?.id) {
+          contentId = existingItem.id as string;
+          rep.projectsUpdated++;
+        } else {
+          const formData = rowToFormData(row.data, baseSort + i);
+          formData.slug = slug;
+          contentId = await createPortfolio(selectedClient.id, formData);
+          created = true;
+          rep.projectsCreated++;
+        }
+
+        // 2) taxonomy: Category → Tag 1 → Tag 2 (only for newly created projects)
+        if (created) {
+          const catId = await ensureCategory(row.data.category, row.data.category_zh, taxonomyCache);
+          if (catId) {
+            await supabase
+              .from("content_categories")
+              .insert({ content_id: contentId, category_id: catId });
+          }
+          const tag1Id = await ensureTag(
+            row.data.tag_1, row.data.tag_1_zh, 1, catId, null, taxonomyCache,
+          );
+          if (tag1Id) {
+            await supabase.from("content_tags").insert({ content_id: contentId, tag_id: tag1Id });
+            const tag2Names = splitList(row.data.tag_2);
+            const tag2Zh = splitList(row.data.tag_2_zh);
+            for (let t = 0; t < tag2Names.length; t++) {
+              const tag2Id = await ensureTag(
+                tag2Names[t], tag2Zh[t] ?? "", 2, catId, tag1Id, taxonomyCache,
+              );
+              if (tag2Id) {
+                await supabase.from("content_tags").insert({ content_id: contentId, tag_id: tag2Id });
+              }
             }
           }
         }
 
-        // 4) media_assets (featured first, then the numbered gallery)
-        const assetRows: Record<string, unknown>[] = [];
-        if (featured && featuredUrl) {
-          const size = await readImageSize(featured);
-          assetRows.push({
-            client_id: selectedClient.id,
-            content_id: contentId,
-            file_url: featuredUrl,
-            file_type: featured.type || `image/${extOf(featured.name)}`,
-            original_filename: featured.name,
-            width_px: size.width,
-            height_px: size.height,
-            alt_text: row.data.title,
-            alt_text_zh: row.data.title_zh || null,
-            image_credit: row.data.photographer || null,
-            is_featured: true,
-            sort_order: 0,
-          });
+        // 3) existing gallery (skip duplicates, or wipe when replacing)
+        if (replaceGallery) {
+          const { data: old } = await supabase
+            .from("media_assets")
+            .select("id, file_url")
+            .eq("content_id", contentId);
+          for (const o of old ?? []) {
+            await removeStoredFile((o as { file_url: string }).file_url);
+          }
+          await supabase.from("media_assets").delete().eq("content_id", contentId);
         }
-        for (let g = 0; g < gallery.length; g++) {
-          const gFile = gallery[g];
-          const gUrl = await uploadImage(gFile);
-          const size = await readImageSize(gFile);
-          assetRows.push({
-            client_id: selectedClient.id,
-            content_id: contentId,
-            file_url: gUrl,
-            file_type: gFile.type || `image/${extOf(gFile.name)}`,
-            original_filename: gFile.name,
-            width_px: size.width,
-            height_px: size.height,
-            alt_text: `${row.data.title} — ${g + 1}`,
-            alt_text_zh: row.data.title_zh ? `${row.data.title_zh} — ${g + 1}` : null,
-            image_credit: row.data.photographer || null,
-            is_featured: false,
-            sort_order: g + 1,
-          });
+        const { data: existingAssets } = await supabase
+          .from("media_assets")
+          .select("original_filename, sort_order")
+          .eq("content_id", contentId);
+        const existingNames = new Set(
+          (existingAssets ?? [])
+            .map((a) => (a as { original_filename: string | null }).original_filename)
+            .filter(Boolean)
+            .map((n) => (n as string).toLowerCase()),
+        );
+        let sortCursor =
+          (existingAssets ?? []).reduce(
+            (max, a) => Math.max(max, (a as { sort_order: number | null }).sort_order ?? 0),
+            0,
+          ) + 1;
+
+        // 4) upload each image, then insert its media_assets row
+        let featuredUrl: string | null = null;
+        for (const entry of ordered) {
+          if (existingNames.has(entry.img.name.toLowerCase())) {
+            rep.imagesSkipped++;
+            continue;
+          }
+          try {
+            const url = await uploadPortfolioImage(selectedClient.id, entry.img.file);
+            const size = await readImageSize(entry.img.file);
+            const { error: insErr } = await supabase.from("media_assets").insert({
+              client_id: selectedClient.id,
+              content_id: contentId,
+              file_url: url,
+              file_type: entry.img.file.type || `image/${extOf(entry.img.name)}`,
+              original_filename: entry.img.name,
+              width_px: size.width,
+              height_px: size.height,
+              alt_text: row.data.title,
+              alt_text_zh: row.data.title_zh || null,
+              image_credit: row.data.photographer || null,
+              is_featured: entry.featured,
+              sort_order: entry.featured ? 0 : sortCursor++,
+            });
+            if (insErr) throw insErr;
+            if (entry.featured) featuredUrl = url;
+            rep.imagesUploaded++;
+          } catch (imgErr) {
+            rep.imagesFailed++;
+            rep.failures.push({
+              project: title,
+              filename: entry.img.name,
+              reason: imgErr instanceof Error ? imgErr.message : "Upload failed",
+            });
+          }
         }
-        if (assetRows.length > 0) {
-          const { error } = await supabase.from("media_assets").insert(assetRows);
-          if (error) throw error;
+
+        if (featuredUrl) {
+          await supabase
+            .from("content_items")
+            .update({ featured_image_url: featuredUrl })
+            .eq("id", contentId);
         }
 
         next[i] = { ...row, status: "success", error: undefined };
       } catch (err) {
         console.error("[import] row failed", row.data.title, err);
+        rep.projectsFailed++;
+        rep.failures.push({
+          project: title,
+          filename: "—",
+          reason: err instanceof Error ? err.message : "Unknown error",
+        });
         next[i] = {
           ...row,
           status: "failed",
@@ -557,16 +637,17 @@ function BulkImportPage() {
         };
       }
       setRows([...next]);
-      setProgress({ current: i + 1, total: next.length, label: row.data.title });
+      setProgress({ current: i + 1, total: next.length, label: title });
     }
 
     setImporting(false);
+    setReport(rep);
     setDone(true);
     qc.invalidateQueries({ queryKey: ["portfolio", selectedClient.id] });
     qc.invalidateQueries({ queryKey: ["dashboard-stats", selectedClient.id] });
-    const ok = next.filter((r) => r.status === "success").length;
-    const fail = next.filter((r) => r.status === "failed").length;
-    toast.success(`Imported ${ok}, failed ${fail}`);
+    toast.success(
+      `Imported ${rep.projectsCreated + rep.projectsUpdated} project(s), ${rep.imagesUploaded} image(s)`,
+    );
   };
 
   // --- export -----------------------------------------------------------
