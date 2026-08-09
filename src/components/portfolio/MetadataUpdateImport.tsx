@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CheckCircle2, FileText, Loader2, RotateCcw, Upload, XCircle } from "lucide-react";
 
@@ -15,7 +15,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  buildLegacyOverrides,
+  getPortfolioFieldDefinitions,
+  mergeAdditionalProjectData,
+  type DynamicMetadataState,
+  type PortfolioFieldDefinition,
+} from "@/lib/field-definitions";
+import { buildImportMapping, mapRow } from "@/lib/portfolio-import-mapping";
 import type { Client } from "@/types";
+
 
 /** Minimal CSV parser (quoted fields, embedded commas/newlines). */
 function parseCsv(text: string): string[][] {
