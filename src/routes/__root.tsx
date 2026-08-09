@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -6,14 +5,13 @@ import {
   createRootRouteWithContext,
   useRouter,
   useLocation,
-  useNavigate,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 
 import { ClientProvider } from "@/contexts/ClientContext";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { TopBar } from "@/components/layout/TopBar";
 
