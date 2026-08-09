@@ -255,17 +255,22 @@ export function validateImport(opts: ValidateOptions): ValidationResult {
     }
 
     const hasError = issues.some((x) => x.severity === "error");
-    const exists = slug ? existingSlugs.has(slug) : false;
+    // Identity is the SUPPLIED spreadsheet slug first; the normalized form is
+    // only a secondary lookup so an unsafe legacy slug can't create a duplicate.
+    const suppliedSlug = slugRes.supplied;
+    const matchedSlug = suppliedSlug && existingSlugs.has(suppliedSlug) ? suppliedSlug : slug;
+    const exists = matchedSlug ? existingSlugs.has(matchedSlug) : false;
     const action: ValidatedRow["action"] = hasError ? "invalid" : exists ? "update" : "create";
 
     if (!hasError) {
       issues.push({
         severity: "info",
         message: exists
-          ? `Existing project "${slug}" will be updated`
+          ? `Existing project "${matchedSlug}" will be updated`
           : `New project "${slug}" will be created`,
       });
     }
+
 
     rows.push({
       rowNumber,
