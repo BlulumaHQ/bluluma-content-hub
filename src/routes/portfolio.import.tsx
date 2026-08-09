@@ -545,7 +545,7 @@ function BulkImportPage() {
             .maybeSingle();
           const base = portfolioFormFrom({
             ...(existingItem as unknown as PortfolioItem),
-            portfolio_details: (details ?? null) as PortfolioItem["portfolio_details"],
+            portfolio_details: (details ?? undefined) as PortfolioItem["portfolio_details"],
           });
           const formData = applyCoreToForm(base, core, row.slug, baseSort + i);
           await updatePortfolio(contentId, selectedClient.id, formData, dynamic);
