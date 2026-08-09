@@ -216,13 +216,16 @@ const coreType = (kind: CoreKind): ColumnType =>
         ? "Description"
         : kind === "service"
           ? "Service"
-          : kind === "system"
+          : kind === "system" || kind === "row-reference"
             ? "System"
             : kind === "internal"
               ? "Internal"
               : kind === "reference"
                 ? "Reference"
-                : "Core";
+                : kind === "client-validation"
+                  ? "Client Validation"
+                  : "Core";
+
 
 /** value / unit / display role of a definition source column, by type + position. */
 function dynamicPart(
