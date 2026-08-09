@@ -121,38 +121,13 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AuthGate() {
-  const { session, isLoading } = useAuth();
+// NOTE: Mandatory auth gate is temporarily disabled for development.
+// AuthContext and /auth remain available to re-enable before production.
+function AppShell() {
   const location = useLocation();
-  const navigate = useNavigate();
   const isAuthRoute = location.pathname === "/auth";
 
-  useEffect(() => {
-    if (isLoading) return;
-    if (!session && !isAuthRoute) {
-      navigate({ to: "/auth", replace: true });
-    } else if (session && isAuthRoute) {
-      navigate({ to: "/", replace: true });
-    }
-  }, [session, isLoading, isAuthRoute, navigate]);
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
   if (isAuthRoute) return <Outlet />;
-
-  if (!session) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
 
   return (
     <ClientProvider>
