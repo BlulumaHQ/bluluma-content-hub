@@ -65,7 +65,7 @@ export interface CoreFieldSpec {
 export const CORE_FIELDS: CoreFieldSpec[] = [
   { key: "title", kind: "core", destination: "content_items.title", aliases: ["project name (en)", "project name", "title (en)", "project title"] },
   { key: "title_zh", kind: "core", destination: "content_items.title_zh", aliases: ["project name (中文)", "project name (zh)", "title (中文)", "專案名稱"] },
-  { key: "slug", kind: "core", destination: "content_items.slug", aliases: ["url slug", "project slug"] },
+  { key: "slug", kind: "core", destination: "content_items.slug", aliases: ["url slug", "project slug", "project slug (url)", "project slug (url", "slug (url)"] },
   { key: "excerpt", kind: "description", destination: "content_items.excerpt", aliases: ["short description - card (en)", "short description (en)", "short description", "card description (en)"] },
   { key: "excerpt_zh", kind: "description", destination: "content_items.excerpt_zh", aliases: ["short description - card (中文)", "short description (中文)", "short description (zh)"] },
   { key: "body_content", kind: "description", destination: "content_items.body_content", aliases: ["full description (en)", "full description", "body (en)"] },
