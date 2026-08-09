@@ -45,7 +45,10 @@ export type CoreKind =
   | "system"
   | "internal"
   | "reference"
+  | "row-reference"
+  | "client-validation"
   | "legacy-metadata";
+
 
 export interface CoreFieldSpec {
   key: string;
@@ -62,7 +65,7 @@ export interface CoreFieldSpec {
 export const CORE_FIELDS: CoreFieldSpec[] = [
   { key: "title", kind: "core", destination: "content_items.title", aliases: ["project name (en)", "project name", "title (en)", "project title"] },
   { key: "title_zh", kind: "core", destination: "content_items.title_zh", aliases: ["project name (中文)", "project name (zh)", "title (中文)", "專案名稱"] },
-  { key: "slug", kind: "core", destination: "content_items.slug", aliases: ["url slug", "project slug"] },
+  { key: "slug", kind: "core", destination: "content_items.slug", aliases: ["url slug", "project slug", "project slug (url)", "project slug (url", "slug (url)"] },
   { key: "excerpt", kind: "description", destination: "content_items.excerpt", aliases: ["short description - card (en)", "short description (en)", "short description", "card description (en)"] },
   { key: "excerpt_zh", kind: "description", destination: "content_items.excerpt_zh", aliases: ["short description - card (中文)", "short description (中文)", "short description (zh)"] },
   { key: "body_content", kind: "description", destination: "content_items.body_content", aliases: ["full description (en)", "full description", "body (en)"] },
@@ -132,7 +135,12 @@ export const CORE_FIELDS: CoreFieldSpec[] = [
 
   { key: "original_website_content", kind: "reference", destination: "portfolio_details.original_website_content", aliases: ["original detail text (ref.)", "original detail text (ref)", "original detail text", "original website content"] },
   { key: "internal_notes", kind: "internal", destination: "portfolio_details.internal_notes", aliases: ["notes for sony", "internal notes", "notes (internal)", "notes"] },
+
+  // Spreadsheet-only columns: recognised, never stored as project metadata.
+  { key: "row_reference", kind: "row-reference", destination: "Row Reference (spreadsheet sequence)", aliases: ["#", "no", "no.", "row", "row #", "item #"] },
+  { key: "company", kind: "client-validation", destination: "selectedClient.client_name", aliases: ["company", "company name", "client company"] },
 ];
+
 
 /** All canonical core keys (legacy CSV contract). */
 export const CORE_KEYS = CORE_FIELDS.map((f) => f.key);
@@ -159,6 +167,8 @@ export type ColumnType =
   | "System"
   | "Internal"
   | "Reference"
+  | "Client Validation"
+
   | "Dynamic Specification"
   | "Dynamic Credit"
   | "Dynamic Metadata"
@@ -206,13 +216,16 @@ const coreType = (kind: CoreKind): ColumnType =>
         ? "Description"
         : kind === "service"
           ? "Service"
-          : kind === "system"
+          : kind === "system" || kind === "row-reference"
             ? "System"
             : kind === "internal"
               ? "Internal"
               : kind === "reference"
                 ? "Reference"
-                : "Core";
+                : kind === "client-validation"
+                  ? "Client Validation"
+                  : "Core";
+
 
 /** value / unit / display role of a definition source column, by type + position. */
 function dynamicPart(
@@ -294,7 +307,12 @@ export function buildImportMapping(
             ? "Internal / not rendered publicly"
             : core.kind === "reference"
               ? "Reference only / not rendered publicly"
-              : undefined,
+              : core.kind === "row-reference"
+                ? "Spreadsheet row reference only / not stored"
+                : core.kind === "client-validation"
+                  ? "Validated against the selected client / not stored"
+                  : undefined,
+
       });
       return;
     }

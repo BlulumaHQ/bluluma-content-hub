@@ -296,6 +296,7 @@ function BulkImportPage() {
       definitions,
       existingSlugs: new Set(existingSlugList),
       strict,
+      clientName: selectedClient?.client_name,
     });
     const prefixIdx = first.mapping.coreIndex["image_prefix"];
     const galleryCounts = new Map<number, number>();
@@ -311,8 +312,10 @@ function BulkImportPage() {
       existingSlugs: new Set(existingSlugList),
       strict,
       galleryCounts,
+      clientName: selectedClient?.client_name,
     });
-  }, [headers, dataRows, definitions, existingSlugList, strict, dedupedImages]);
+  }, [headers, dataRows, definitions, existingSlugList, strict, dedupedImages, selectedClient]);
+
 
   const unmatchedNames = useMemo(() => {
     if (dedupedImages.length === 0 || !validation) return [];
@@ -530,7 +533,7 @@ function BulkImportPage() {
           .select("*")
           .eq("client_id", selectedClient.id)
           .eq("content_type", "portfolio")
-          .eq("slug", row.slug)
+          .eq("slug", row.matchSlug)
           .limit(1)
           .maybeSingle();
 
@@ -547,9 +550,11 @@ function BulkImportPage() {
             ...(existingItem as unknown as PortfolioItem),
             portfolio_details: (details ?? undefined) as PortfolioItem["portfolio_details"],
           });
-          const formData = applyCoreToForm(base, core, row.slug, baseSort + i);
+          // never rewrite an existing project's slug
+          const formData = applyCoreToForm(base, core, row.matchSlug, baseSort + i);
           await updatePortfolio(contentId, selectedClient.id, formData, dynamic);
           rep.projectsUpdated++;
+
         } else {
           const formData = applyCoreToForm(
             emptyPortfolioForm(),

@@ -29,7 +29,10 @@ export interface ValidatedRow {
   mapped: MappedRow;
   title: string;
   slug: string;
+  /** slug actually used to look up an existing project (supplied slug wins) */
+  matchSlug: string;
   slugResolution: SlugResolution;
+
   category: string;
   tag1: string;
   tag2: string;
@@ -102,11 +105,16 @@ export interface ValidateOptions {
   strict: boolean;
   /** optional per-row image findings (matched gallery count keyed by row index) */
   galleryCounts?: Map<number, number>;
+  /** selected client name — used to validate a spreadsheet "Company" column */
+  clientName?: string;
 }
 
 export function validateImport(opts: ValidateOptions): ValidationResult {
   const { headers, dataRows, definitions, existingSlugs, strict } = opts;
   const mapping = buildImportMapping(headers, definitions);
+  const companyIdx = mapping.coreIndex["company"];
+  const expectedCompany = (opts.clientName ?? "").trim().toLowerCase();
+
 
   const columnIssues: Issue[] = [];
   const dynamicHeaders = new Set(
@@ -149,9 +157,24 @@ export function validateImport(opts: ValidateOptions): ValidationResult {
         severity: "warning",
         column: "slug",
         value: slugRes.supplied,
-        message: `${slugRes.reason}. Review before committing — an existing project's slug is never rewritten silently.`,
+        message: `${slugRes.reason}. Supplied: "${slugRes.supplied}" · Proposed: "${slugRes.slug}". Review before committing — an existing project's slug is never rewritten silently.`,
       });
     }
+
+    // Company column: client validation only, never stored as project metadata.
+    if (companyIdx !== undefined) {
+      const company = (cols[companyIdx] ?? "").trim();
+      if (company && expectedCompany && company.toLowerCase() !== expectedCompany) {
+        issues.push({
+          severity: "error",
+          column: "Company",
+          value: company,
+          message: `Client mismatch: spreadsheet row belongs to "${company}" but the selected BluLuma client is "${opts.clientName}".`,
+        });
+      }
+    }
+
+
 
     if (slug) {
       const prev = slugSeen.get(slug);
@@ -235,17 +258,22 @@ export function validateImport(opts: ValidateOptions): ValidationResult {
     }
 
     const hasError = issues.some((x) => x.severity === "error");
-    const exists = slug ? existingSlugs.has(slug) : false;
+    // Identity is the SUPPLIED spreadsheet slug first; the normalized form is
+    // only a secondary lookup so an unsafe legacy slug can't create a duplicate.
+    const suppliedSlug = slugRes.supplied;
+    const matchedSlug = suppliedSlug && existingSlugs.has(suppliedSlug) ? suppliedSlug : slug;
+    const exists = matchedSlug ? existingSlugs.has(matchedSlug) : false;
     const action: ValidatedRow["action"] = hasError ? "invalid" : exists ? "update" : "create";
 
     if (!hasError) {
       issues.push({
         severity: "info",
         message: exists
-          ? `Existing project "${slug}" will be updated`
+          ? `Existing project "${matchedSlug}" will be updated`
           : `New project "${slug}" will be created`,
       });
     }
+
 
     rows.push({
       rowNumber,
@@ -253,6 +281,8 @@ export function validateImport(opts: ValidateOptions): ValidationResult {
       title,
       slug,
       slugResolution: slugRes,
+      matchSlug: matchedSlug,
+
       category,
       tag1,
       tag2,
