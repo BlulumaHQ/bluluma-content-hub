@@ -296,6 +296,7 @@ function BulkImportPage() {
       definitions,
       existingSlugs: new Set(existingSlugList),
       strict,
+      clientName: selectedClient?.client_name,
     });
     const prefixIdx = first.mapping.coreIndex["image_prefix"];
     const galleryCounts = new Map<number, number>();
@@ -311,8 +312,10 @@ function BulkImportPage() {
       existingSlugs: new Set(existingSlugList),
       strict,
       galleryCounts,
+      clientName: selectedClient?.client_name,
     });
-  }, [headers, dataRows, definitions, existingSlugList, strict, dedupedImages]);
+  }, [headers, dataRows, definitions, existingSlugList, strict, dedupedImages, selectedClient]);
+
 
   const unmatchedNames = useMemo(() => {
     if (dedupedImages.length === 0 || !validation) return [];
