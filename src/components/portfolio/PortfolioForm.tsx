@@ -27,6 +27,7 @@ import {
   buildDynamicFormState,
   getPortfolioFieldDefinitions,
   mappedLegacyColumns,
+  SECTION_TITLES,
   type DynamicFieldDraft,
   type DynamicMetadataState,
 } from "@/lib/field-definitions";
@@ -105,7 +106,6 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
   // ---- dynamic (definition-driven) metadata -------------------------------
   const {
     data: definitions,
-    isLoading: definitionsLoading,
     error: definitionsError,
   } = useQuery({
     queryKey: ["portfolio-field-definitions", client.id, client.industry ?? null],
@@ -128,10 +128,28 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
       [section]: { ...(prev[section] ?? {}), [fieldKey]: draft },
     }));
 
-  /** Legacy columns owned by dynamic definitions — locked to avoid conflicts. */
+  /** Legacy columns owned by dynamic definitions — their duplicate hard-coded
+   * inputs are not rendered for migrated clients. */
   const lockedLegacy = useMemo(
     () => mappedLegacyColumns(definitions ?? []),
     [definitions],
+  );
+
+  /** Section-level detection — never a single global "has dynamic" flag. */
+  const defsBySection = useMemo(() => {
+    const map = new Map<string, typeof definitions>();
+    for (const def of definitions ?? []) {
+      const list = map.get(def.section) ?? [];
+      list.push(def);
+      map.set(def.section, list);
+    }
+    return map;
+  }, [definitions]);
+
+  const specDefs = defsBySection.get("specifications") ?? [];
+  const creditDefs = defsBySection.get("credits") ?? [];
+  const otherDynamicSections = [...defsBySection.entries()].filter(
+    ([section]) => section !== "specifications" && section !== "credits",
   );
 
   const set = <K extends keyof PortfolioFormData>(field: K, value: PortfolioFormData[K]) => {
@@ -157,21 +175,16 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
     placeholder?: string;
     type?: string;
   }) => {
-    const locked = lockedLegacy.has(String(name));
+    // Migrated clients edit this value through its dynamic definition instead.
+    if (lockedLegacy.has(String(name))) return null;
     return (
     <div className="space-y-1.5">
-      <Label htmlFor={String(name)}>
-        {label}
-        {locked && (
-          <span className="ml-1 text-xs text-muted-foreground">(legacy — edit above)</span>
-        )}
-      </Label>
+      <Label htmlFor={String(name)}>{label}</Label>
       <Input
         id={String(name)}
         type={type}
         value={String(form[name] ?? "")}
         placeholder={placeholder}
-        disabled={locked}
         onChange={(e) => set(name, e.target.value as PortfolioFormData[typeof name])}
       />
     </div>
@@ -189,21 +202,15 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
     rows?: number;
     placeholder?: string;
   }) => {
-    const locked = lockedLegacy.has(String(name));
+    if (lockedLegacy.has(String(name))) return null;
     return (
     <div className="space-y-1.5">
-      <Label htmlFor={String(name)}>
-        {label}
-        {locked && (
-          <span className="ml-1 text-xs text-muted-foreground">(legacy — edit above)</span>
-        )}
-      </Label>
+      <Label htmlFor={String(name)}>{label}</Label>
       <Textarea
         id={String(name)}
         rows={rows}
         placeholder={placeholder}
         value={String(form[name] ?? "")}
-        disabled={locked}
         onChange={(e) => set(name, e.target.value as PortfolioFormData[typeof name])}
       />
     </div>
@@ -378,21 +385,31 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
         </div>
       </Section>
 
-      {/* 3. Size & scale */}
-      <Section title="3. Size & Scale">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <Field name="floor_area_value" label="Floor Area" placeholder="12500" />
-          <Field name="floor_area_unit" label="Floor Area Unit" placeholder="sq ft" />
-          <Field name="site_area_value" label="Site Area" placeholder="20000" />
-          <Field name="site_area_unit" label="Site Area Unit" placeholder="sq ft" />
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <Field name="units_count" label="Units" />
-          <Field name="storeys_count" label="Storeys" />
-          <Field name="parking_spaces" label="Parking Spaces" />
-          <Field name="construction_budget" label="Construction Budget" placeholder="$12M" />
-        </div>
-      </Section>
+      {/* 3. Specifications (dynamic) — or legacy Size & Scale */}
+      {specDefs.length > 0 ? (
+        <Section title="3. Specifications">
+          <DynamicFieldSection
+            definitions={specDefs}
+            state={dynamicState}
+            onChange={setDynamic}
+          />
+        </Section>
+      ) : (
+        <Section title="3. Size & Scale">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <Field name="floor_area_value" label="Floor Area" placeholder="12500" />
+            <Field name="floor_area_unit" label="Floor Area Unit" placeholder="sq ft" />
+            <Field name="site_area_value" label="Site Area" placeholder="20000" />
+            <Field name="site_area_unit" label="Site Area Unit" placeholder="sq ft" />
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <Field name="units_count" label="Units" />
+            <Field name="storeys_count" label="Storeys" />
+            <Field name="parking_spaces" label="Parking Spaces" />
+            <Field name="construction_budget" label="Construction Budget" placeholder="$12M" />
+          </div>
+        </Section>
+      )}
 
       {/* 4. Description */}
       <Section title="4. Description & Scope">
@@ -421,33 +438,43 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
         </div>
       </Section>
 
-      {/* 5. Credits */}
-      <Section title="5. Project Credits">
-        <div className="space-y-1.5">
-          <Label>Architect Role</Label>
-          <CreatableMultiSelect
-            values={form.architect_roles}
-            options={ARCHITECT_ROLE_OPTIONS}
-            onChange={(v) => set("architect_roles", v)}
-            placeholder="Type a custom role and press Enter"
+      {/* 5. Credits (dynamic) — or legacy Project Credits */}
+      {creditDefs.length > 0 ? (
+        <Section title="5. Credits">
+          <DynamicFieldSection
+            definitions={creditDefs}
+            state={dynamicState}
+            onChange={setDynamic}
           />
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Field name="design_architect" label="Design Architect" />
-          <Field name="architect_of_record" label="Architect of Record" />
-          <Field name="interior_designer" label="Interior Designer" />
-          <Field name="landscape_architect" label="Landscape Architect" />
-          <Field name="structural_engineer" label="Structural Engineer" />
-          <Field name="mechanical_engineer" label="Mechanical Engineer" />
-          <Field name="electrical_engineer" label="Electrical Engineer" />
-          <Field name="civil_engineer" label="Civil Engineer" />
-          <Field name="general_contractor" label="General Contractor" />
-          <Field name="developer_owner_client" label="Developer / Owner / Client" />
-          <Field name="photographer" label="Photographer" />
-        </div>
-        <Area name="other_consultants" label="Other Consultants" rows={2} />
-        <Area name="other_credits" label="Other Credits" rows={2} />
-      </Section>
+        </Section>
+      ) : (
+        <Section title="5. Project Credits">
+          <div className="space-y-1.5">
+            <Label>Architect Role</Label>
+            <CreatableMultiSelect
+              values={form.architect_roles}
+              options={ARCHITECT_ROLE_OPTIONS}
+              onChange={(v) => set("architect_roles", v)}
+              placeholder="Type a custom role and press Enter"
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Field name="design_architect" label="Design Architect" />
+            <Field name="architect_of_record" label="Architect of Record" />
+            <Field name="interior_designer" label="Interior Designer" />
+            <Field name="landscape_architect" label="Landscape Architect" />
+            <Field name="structural_engineer" label="Structural Engineer" />
+            <Field name="mechanical_engineer" label="Mechanical Engineer" />
+            <Field name="electrical_engineer" label="Electrical Engineer" />
+            <Field name="civil_engineer" label="Civil Engineer" />
+            <Field name="general_contractor" label="General Contractor" />
+            <Field name="developer_owner_client" label="Developer / Owner / Client" />
+            <Field name="photographer" label="Photographer" />
+          </div>
+          <Area name="other_consultants" label="Other Consultants" rows={2} />
+          <Area name="other_credits" label="Other Credits" rows={2} />
+        </Section>
+      )}
 
       {/* 6. Recognition */}
       <Section title="6. Awards & Publications">
@@ -475,14 +502,18 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
         <Area name="internal_notes" label="Internal Notes" rows={3} />
       </Section>
 
-      {/* Dynamic, definition-driven metadata (saved with this form) */}
-      <DynamicFieldSection
-        definitions={definitions ?? []}
-        state={dynamicState}
-        onChange={setDynamic}
-        isLoading={definitionsLoading}
-        error={definitionsError}
-      />
+      {/* Any other definition-driven sections (e.g. "custom") */}
+      {otherDynamicSections.map(([section, defs]) => (
+        <Section key={section} title={SECTION_TITLES[section] ?? "Additional Information"}>
+          <DynamicFieldSection definitions={defs} state={dynamicState} onChange={setDynamic} />
+        </Section>
+      ))}
+
+      {!!definitionsError && (
+        <p className="text-sm text-destructive">
+          Could not load project metadata definitions. Legacy fields are shown instead.
+        </p>
+      )}
 
       <div className="flex items-center gap-3 pt-2">
         <Button type="submit" disabled={isSubmitting || uploading}>
