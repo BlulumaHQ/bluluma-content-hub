@@ -291,3 +291,62 @@ describe("misc validation", () => {
     expect(buildLegacyOverrides(input.definitions, input.values)).toEqual({});
   });
 });
+
+describe("Architect57 header fixes", () => {
+  const H = ["#", "Company", "Project Name (EN)", "Project Slug (URL)"];
+  const runA = (rows: string[][], existing: string[] = [], clientName = "Architect 57") =>
+    validateImport({
+      headers: H,
+      dataRows: rows,
+      definitions: [],
+      existingSlugs: new Set(existing),
+      strict: true,
+      clientName,
+    });
+
+  it("recognizes #, Company and Project Slug (URL)", () => {
+    const m = buildImportMapping(H, []);
+    expect(m.unmappedColumns).toHaveLength(0);
+    expect(m.columns[0].type).toBe("System");
+    expect(m.columns[0].destination).toContain("Row Reference");
+    expect(m.columns[1].type).toBe("Client Validation");
+    expect(m.columns[3].destination).toBe("content_items.slug");
+  });
+
+  it("uses the supplied slug, not one generated from the title", () => {
+    const res = runA([["1", "Architect 57", "Okanagan Chateau Retirement Residence", "okanagan-chateau"]]);
+    expect(res.rows[0].slug).toBe("okanagan-chateau");
+    expect(res.canCommit).toBe(true);
+  });
+
+  it("recalculates update vs create from the supplied slug", () => {
+    const res = runA(
+      [
+        ["1", "Architect 57", "Architect 57 Inc.", "architect-57-office"],
+        ["2", "Architect 57", "1NE Collective Realty", "1ne-collective"],
+      ],
+      ["architect-57-office"],
+    );
+    expect(res.totals.update).toBe(1);
+    expect(res.totals.create).toBe(1);
+  });
+
+  it("blocks a company mismatch", () => {
+    const res = runA([["1", "ABC Company", "T", "t"]]);
+    expect(res.canCommit).toBe(false);
+  });
+
+  it("warns on an unsafe supplied slug and proposes a safe one", () => {
+    const res = runA([["1", "Architect 57", "%Arabica Coffee", "%arabica-coffee"]]);
+    expect(res.rows[0].title).toBe("%Arabica Coffee");
+    expect(res.rows[0].slug).toBe("arabica-coffee");
+    expect(res.rows[0].issues.some((i) => i.severity === "warning" && i.column === "slug")).toBe(true);
+    expect(res.canCommit).toBe(true);
+  });
+
+  it("matches an existing legacy unsafe slug instead of creating a duplicate", () => {
+    const res = runA([["1", "Architect 57", "%Arabica Coffee", "%arabica-coffee"]], ["%arabica-coffee"]);
+    expect(res.rows[0].matchSlug).toBe("%arabica-coffee");
+    expect(res.totals.update).toBe(1);
+  });
+});
