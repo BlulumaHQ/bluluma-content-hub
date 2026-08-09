@@ -1,16 +1,19 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
+  useNavigate,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 
 import { ClientProvider } from "@/contexts/ClientContext";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { TopBar } from "@/components/layout/TopBar";
 
@@ -118,23 +121,61 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AuthGate() {
+  const { session, isLoading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isAuthRoute = location.pathname === "/auth";
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!session && !isAuthRoute) {
+      navigate({ to: "/auth", replace: true });
+    } else if (session && isAuthRoute) {
+      navigate({ to: "/", replace: true });
+    }
+  }, [session, isLoading, isAuthRoute, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (isAuthRoute) return <Outlet />;
+
+  if (!session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  return (
+    <ClientProvider>
+      <div className="flex h-screen w-full overflow-hidden">
+        <AppSidebar />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <TopBar />
+          <main className="flex-1 overflow-auto bg-background p-6">
+            <Outlet />
+          </main>
+        </div>
+      </div>
+    </ClientProvider>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ClientProvider>
-          <div className="flex h-screen w-full overflow-hidden">
-            <AppSidebar />
-            <div className="flex flex-1 flex-col overflow-hidden">
-              <TopBar />
-              <main className="flex-1 overflow-auto bg-background p-6">
-                <Outlet />
-              </main>
-            </div>
-          </div>
-        </ClientProvider>
+        <AuthGate />
         <Toaster position="top-right" />
       </AuthProvider>
     </QueryClientProvider>
