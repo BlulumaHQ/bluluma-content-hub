@@ -307,7 +307,12 @@ export function buildImportMapping(
             ? "Internal / not rendered publicly"
             : core.kind === "reference"
               ? "Reference only / not rendered publicly"
-              : undefined,
+              : core.kind === "row-reference"
+                ? "Spreadsheet row reference only / not stored"
+                : core.kind === "client-validation"
+                  ? "Validated against the selected client / not stored"
+                  : undefined,
+
       });
       return;
     }
