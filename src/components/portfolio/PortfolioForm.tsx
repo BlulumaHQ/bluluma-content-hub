@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Upload, X, Loader2, ChevronDown } from "lucide-react";
@@ -21,6 +22,14 @@ const ARCHITECT_ROLE_OPTIONS = [
   "Master Planning",
   "Urban Design",
 ];
+import { DynamicFieldSection } from "@/components/portfolio/DynamicFieldSection";
+import {
+  buildDynamicFormState,
+  getPortfolioFieldDefinitions,
+  mappedLegacyColumns,
+  type DynamicFieldDraft,
+  type DynamicMetadataState,
+} from "@/lib/field-definitions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,13 +46,14 @@ import type { Client, PortfolioItem } from "@/types";
 import {
   emptyPortfolioForm,
   portfolioFormFrom,
+  type DynamicSaveInput,
   type PortfolioFormData,
 } from "@/lib/portfolio";
 
 interface PortfolioFormProps {
   client: Client;
   initialData?: PortfolioItem;
-  onSave: (data: PortfolioFormData) => Promise<void>;
+  onSave: (data: PortfolioFormData, dynamic: DynamicSaveInput) => Promise<void>;
   onCancel?: () => void;
 }
 
@@ -92,6 +102,38 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
     initialData?.featured_image_url ?? null,
   );
 
+  // ---- dynamic (definition-driven) metadata -------------------------------
+  const {
+    data: definitions,
+    isLoading: definitionsLoading,
+    error: definitionsError,
+  } = useQuery({
+    queryKey: ["portfolio-field-definitions", client.id, client.industry ?? null],
+    queryFn: () => getPortfolioFieldDefinitions(client),
+  });
+
+  const [dynamicState, setDynamicState] = useState<DynamicMetadataState>({});
+
+  // Re-initialize whenever the client (and therefore its definitions) changes,
+  // so no values leak between clients.
+  useEffect(() => {
+    setDynamicState(
+      buildDynamicFormState(definitions ?? [], initialData?.portfolio_details ?? null),
+    );
+  }, [definitions, initialData?.portfolio_details]);
+
+  const setDynamic = (section: string, fieldKey: string, draft: DynamicFieldDraft) =>
+    setDynamicState((prev) => ({
+      ...prev,
+      [section]: { ...(prev[section] ?? {}), [fieldKey]: draft },
+    }));
+
+  /** Legacy columns owned by dynamic definitions — locked to avoid conflicts. */
+  const lockedLegacy = useMemo(
+    () => mappedLegacyColumns(definitions ?? []),
+    [definitions],
+  );
+
   const set = <K extends keyof PortfolioFormData>(field: K, value: PortfolioFormData[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field as string]) {
@@ -114,18 +156,27 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
     label: string;
     placeholder?: string;
     type?: string;
-  }) => (
+  }) => {
+    const locked = lockedLegacy.has(String(name));
+    return (
     <div className="space-y-1.5">
-      <Label htmlFor={String(name)}>{label}</Label>
+      <Label htmlFor={String(name)}>
+        {label}
+        {locked && (
+          <span className="ml-1 text-xs text-muted-foreground">(legacy — edit above)</span>
+        )}
+      </Label>
       <Input
         id={String(name)}
         type={type}
         value={String(form[name] ?? "")}
         placeholder={placeholder}
+        disabled={locked}
         onChange={(e) => set(name, e.target.value as PortfolioFormData[typeof name])}
       />
     </div>
-  );
+    );
+  };
 
   const Area = ({
     name,
@@ -137,18 +188,27 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
     label: string;
     rows?: number;
     placeholder?: string;
-  }) => (
+  }) => {
+    const locked = lockedLegacy.has(String(name));
+    return (
     <div className="space-y-1.5">
-      <Label htmlFor={String(name)}>{label}</Label>
+      <Label htmlFor={String(name)}>
+        {label}
+        {locked && (
+          <span className="ml-1 text-xs text-muted-foreground">(legacy — edit above)</span>
+        )}
+      </Label>
       <Textarea
         id={String(name)}
         rows={rows}
         placeholder={placeholder}
         value={String(form[name] ?? "")}
+        disabled={locked}
         onChange={(e) => set(name, e.target.value as PortfolioFormData[typeof name])}
       />
     </div>
-  );
+    );
+  };
 
   const handleImageUpload = useCallback(
     async (file: File) => {
@@ -190,7 +250,7 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
     }
     setIsSubmitting(true);
     try {
-      await onSave(form);
+      await onSave(form, { definitions: definitions ?? [], values: dynamicState });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -414,6 +474,15 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
         <Area name="original_website_content" label="Original Website Content" rows={5} />
         <Area name="internal_notes" label="Internal Notes" rows={3} />
       </Section>
+
+      {/* Dynamic, definition-driven metadata (saved with this form) */}
+      <DynamicFieldSection
+        definitions={definitions ?? []}
+        state={dynamicState}
+        onChange={setDynamic}
+        isLoading={definitionsLoading}
+        error={definitionsError}
+      />
 
       <div className="flex items-center gap-3 pt-2">
         <Button type="submit" disabled={isSubmitting || uploading}>

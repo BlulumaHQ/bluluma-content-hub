@@ -3,7 +3,11 @@ import { toast } from "sonner";
 
 import { useClientContext } from "@/contexts/ClientContext";
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
-import { createPortfolio, type PortfolioFormData } from "@/lib/portfolio";
+import {
+  createPortfolio,
+  type DynamicSaveInput,
+  type PortfolioFormData,
+} from "@/lib/portfolio";
 
 export const Route = createFileRoute("/portfolio/new")({
   head: () => ({
@@ -27,8 +31,8 @@ function NewPortfolioPage() {
     );
   }
 
-  const handleSave = async (data: PortfolioFormData) => {
-    const id = await createPortfolio(selectedClient.id, data);
+  const handleSave = async (data: PortfolioFormData, dynamic: DynamicSaveInput) => {
+    const id = await createPortfolio(selectedClient.id, data, dynamic);
     toast.success("Portfolio created successfully");
     navigate({ to: "/portfolio/$id", params: { id } });
   };

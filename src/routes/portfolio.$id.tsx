@@ -4,12 +4,15 @@ import { toast } from "sonner";
 
 import { useClientContext } from "@/contexts/ClientContext";
 import { supabase } from "@/lib/supabase";
-import { updatePortfolio, type PortfolioFormData } from "@/lib/portfolio";
+import {
+  updatePortfolio,
+  type DynamicSaveInput,
+  type PortfolioFormData,
+} from "@/lib/portfolio";
 
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 import { GalleryManager } from "@/components/portfolio/GalleryManager";
 import { CategoryTagPanel } from "@/components/portfolio/CategoryTagPanel";
-import { DynamicFieldSection } from "@/components/portfolio/DynamicFieldSection";
 import type { ContentItem, PortfolioDetail, PortfolioItem } from "@/types";
 
 export const Route = createFileRoute("/portfolio/$id")({
@@ -54,8 +57,8 @@ function EditPortfolioPage() {
     enabled: !!id,
   });
 
-  const handleSave = async (data: PortfolioFormData) => {
-    await updatePortfolio(id, selectedClient!.id, data);
+  const handleSave = async (data: PortfolioFormData, dynamic: DynamicSaveInput) => {
+    await updatePortfolio(id, selectedClient!.id, data, dynamic);
     toast.success("Portfolio updated successfully");
     navigate({ to: "/portfolio" });
   };
@@ -111,13 +114,6 @@ function EditPortfolioPage() {
         <CategoryTagPanel contentId={item.id} clientId={selectedClient.id} />
       </div>
 
-      {/* Phase 2: read-only dynamic metadata verification */}
-      <div className="mt-6 max-w-3xl">
-        <DynamicFieldSection
-          client={selectedClient}
-          details={item.portfolio_details ?? null}
-        />
-      </div>
     </div>
   );
 }

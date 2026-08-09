@@ -1,5 +1,17 @@
 import { supabase } from "@/lib/supabase";
+import {
+  buildLegacyOverrides,
+  mergeAdditionalProjectData,
+  type DynamicMetadataState,
+  type PortfolioFieldDefinition,
+} from "@/lib/field-definitions";
 import type { PortfolioItem } from "@/types";
+
+/** Dynamic metadata payload handed to the save operations. */
+export interface DynamicSaveInput {
+  definitions: PortfolioFieldDefinition[];
+  values: DynamicMetadataState;
+}
 
 /** Every field the expanded Portfolio form manages. */
 export interface PortfolioFormData {
@@ -279,6 +291,7 @@ export async function updatePortfolio(
   contentId: string,
   clientId: string,
   data: PortfolioFormData,
+  dynamic?: DynamicSaveInput,
 ) {
   const contentPayload = buildContentPayload(data);
   const { error: contentError } = await supabase
@@ -291,16 +304,30 @@ export async function updatePortfolio(
     throw new Error(contentError.message);
   }
 
-  const detailsPayload = buildDetailsPayload(data);
+  const basePayload = buildDetailsPayload(data);
   const { data: existing, error: fetchError } = await supabase
     .from("portfolio_details")
-    .select("id")
+    .select("id, additional_project_data")
     .eq("content_id", contentId)
     .maybeSingle();
   if (fetchError) {
     console.error("[portfolio] portfolio_details fetch error", fetchError);
     throw new Error(fetchError.message);
   }
+
+  // Dynamic values are applied LAST so hard-coded legacy form fields can never
+  // overwrite a dynamic edit made in the same save.
+  const detailsPayload = dynamic
+    ? {
+        ...basePayload,
+        ...buildLegacyOverrides(dynamic.definitions, dynamic.values),
+        additional_project_data: mergeAdditionalProjectData(
+          (existing as { additional_project_data?: unknown } | null)?.additional_project_data,
+          dynamic.definitions,
+          dynamic.values,
+        ),
+      }
+    : basePayload;
 
   if (existing) {
     const { error } = await supabase
@@ -323,7 +350,11 @@ export async function updatePortfolio(
 }
 
 /** Create a new portfolio item, returns the new content_items id. */
-export async function createPortfolio(clientId: string, data: PortfolioFormData) {
+export async function createPortfolio(
+  clientId: string,
+  data: PortfolioFormData,
+  dynamic?: DynamicSaveInput,
+) {
   let sort = Number(data.sort_order);
   if (!Number.isFinite(sort) || sort <= 0) {
     const { data: maxRow } = await supabase
@@ -350,9 +381,21 @@ export async function createPortfolio(clientId: string, data: PortfolioFormData)
     throw new Error(contentError.message);
   }
 
+  const detailsPayload = dynamic
+    ? {
+        ...buildDetailsPayload(data),
+        ...buildLegacyOverrides(dynamic.definitions, dynamic.values),
+        additional_project_data: mergeAdditionalProjectData(
+          null,
+          dynamic.definitions,
+          dynamic.values,
+        ),
+      }
+    : buildDetailsPayload(data);
+
   const { error: detailsError } = await supabase
     .from("portfolio_details")
-    .insert({ ...buildDetailsPayload(data), content_id: created.id });
+    .insert({ ...detailsPayload, content_id: created.id });
   if (detailsError) {
     console.error("[portfolio] portfolio_details insert error", detailsError);
     throw new Error(detailsError.message);

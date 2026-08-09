@@ -3,7 +3,7 @@ import { ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { PortfolioItem, Client } from "@/types";
-import { updatePortfolio, type PortfolioFormData } from "@/lib/portfolio";
+import { updatePortfolio, type DynamicSaveInput, type PortfolioFormData } from "@/lib/portfolio";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,9 +32,9 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
   const services = details?.services ?? [];
   const [editOpen, setEditOpen] = useState(false);
 
-  const handleSave = async (data: PortfolioFormData) => {
+  const handleSave = async (data: PortfolioFormData, dynamic: DynamicSaveInput) => {
     try {
-      await updatePortfolio(item.id, client.id, data);
+      await updatePortfolio(item.id, client.id, data, dynamic);
       toast.success("Portfolio saved successfully");
       setEditOpen(false);
       onEdited();
