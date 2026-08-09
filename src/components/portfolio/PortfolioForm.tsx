@@ -56,6 +56,9 @@ interface PortfolioFormProps {
   initialData?: PortfolioItem;
   onSave: (data: PortfolioFormData, dynamic: DynamicSaveInput) => Promise<void>;
   onCancel?: () => void;
+  /** Hide the legacy single featured-image uploader when the page also renders
+   * GalleryManager (which owns Featured Image + Gallery together). */
+  hideFeaturedImage?: boolean;
 }
 
 function Section({
