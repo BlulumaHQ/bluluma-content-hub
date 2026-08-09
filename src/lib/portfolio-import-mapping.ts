@@ -167,6 +167,8 @@ export type ColumnType =
   | "System"
   | "Internal"
   | "Reference"
+  | "Client Validation"
+
   | "Dynamic Specification"
   | "Dynamic Credit"
   | "Dynamic Metadata"
