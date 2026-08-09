@@ -281,6 +281,8 @@ export function validateImport(opts: ValidateOptions): ValidationResult {
       title,
       slug,
       slugResolution: slugRes,
+      matchSlug,
+
       category,
       tag1,
       tag2,
