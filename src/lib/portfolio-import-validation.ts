@@ -154,9 +154,24 @@ export function validateImport(opts: ValidateOptions): ValidationResult {
         severity: "warning",
         column: "slug",
         value: slugRes.supplied,
-        message: `${slugRes.reason}. Review before committing — an existing project's slug is never rewritten silently.`,
+        message: `${slugRes.reason}. Supplied: "${slugRes.supplied}" · Proposed: "${slugRes.slug}". Review before committing — an existing project's slug is never rewritten silently.`,
       });
     }
+
+    // Company column: client validation only, never stored as project metadata.
+    if (companyIdx !== undefined) {
+      const company = (cols[companyIdx] ?? "").trim();
+      if (company && expectedCompany && company.toLowerCase() !== expectedCompany) {
+        issues.push({
+          severity: "error",
+          column: "Company",
+          value: company,
+          message: `Client mismatch: spreadsheet row belongs to "${company}" but the selected BluLuma client is "${opts.clientName}".`,
+        });
+      }
+    }
+
+
 
     if (slug) {
       const prev = slugSeen.get(slug);
