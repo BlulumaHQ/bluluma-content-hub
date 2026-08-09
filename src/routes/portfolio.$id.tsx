@@ -96,11 +96,18 @@ function EditPortfolioPage() {
       <p className="mt-1 text-sm text-muted-foreground">{item.title}</p>
 
       <div className="mt-6">
-        <PortfolioForm client={selectedClient} initialData={item} onSave={handleSave} />
+        <PortfolioForm client={selectedClient} initialData={item} onSave={handleSave} hideFeaturedImage />
       </div>
 
       {/* Featured image + project gallery: same media_assets records the importer writes */}
-      <div className="mt-6 max-w-3xl">
+      <div className="mt-6 max-w-3xl space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Project Images</h2>
+          <p className="text-xs text-muted-foreground">
+            Featured Image is the project cover. Gallery holds all additional project images —
+            select multiple files at once to upload.
+          </p>
+        </div>
         <GalleryManager
           contentId={item.id}
           clientId={selectedClient.id}

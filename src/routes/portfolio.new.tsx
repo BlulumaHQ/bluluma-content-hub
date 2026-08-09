@@ -48,6 +48,13 @@ function NewPortfolioPage() {
       <div className="mt-6">
         <PortfolioForm client={selectedClient} onSave={handleSave} />
       </div>
+
+      <div className="mt-6 max-w-3xl rounded-lg border border-dashed p-4">
+        <h2 className="text-sm font-semibold text-foreground">Project Images</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Save the project first to add gallery images.
+        </p>
+      </div>
     </div>
   );
 }

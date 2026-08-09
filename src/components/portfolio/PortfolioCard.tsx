@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
+import { GalleryManager } from "@/components/portfolio/GalleryManager";
 
 interface PortfolioCardProps {
   item: PortfolioItem;
@@ -160,7 +161,23 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
                   initialData={item}
                   onSave={handleSave}
                   onCancel={() => setEditOpen(false)}
+                  hideFeaturedImage
                 />
+                {/* Project Images: featured + multi-image gallery (media_assets) */}
+                <div className="mt-6 space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold">Project Images</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Featured Image is the project cover. Gallery holds all additional images.
+                    </p>
+                  </div>
+                  <GalleryManager
+                    contentId={item.id}
+                    clientId={client.id}
+                    featuredImageUrl={item.featured_image_url}
+                    expectedGalleryCount={item.portfolio_details?.expected_gallery_count ?? null}
+                  />
+                </div>
               </DialogContent>
             </Dialog>
 

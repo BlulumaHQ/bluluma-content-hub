@@ -56,6 +56,9 @@ interface PortfolioFormProps {
   initialData?: PortfolioItem;
   onSave: (data: PortfolioFormData, dynamic: DynamicSaveInput) => Promise<void>;
   onCancel?: () => void;
+  /** Hide the legacy single featured-image uploader when the page also renders
+   * GalleryManager (which owns Featured Image + Gallery together). */
+  hideFeaturedImage?: boolean;
 }
 
 function Section({
@@ -92,7 +95,7 @@ function Section({
   );
 }
 
-export function PortfolioForm({ client, initialData, onSave, onCancel }: PortfolioFormProps) {
+export function PortfolioForm({ client, initialData, onSave, onCancel, hideFeaturedImage }: PortfolioFormProps) {
   const [uploading, setUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -289,6 +292,11 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
           <Area name="excerpt_zh" label="摘要 (ZH)" rows={3} />
         </div>
 
+        {hideFeaturedImage ? (
+          <p className="text-xs text-muted-foreground">
+            Featured Image and Gallery are managed in the “Project Images” section below.
+          </p>
+        ) : (
         <div className="space-y-1.5">
           <Label>Featured Image</Label>
           <div className="flex items-center gap-4">
@@ -330,6 +338,7 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
             )}
           </div>
         </div>
+        )}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="space-y-1.5">
