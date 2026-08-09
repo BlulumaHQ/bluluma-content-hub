@@ -533,7 +533,7 @@ function BulkImportPage() {
           .select("*")
           .eq("client_id", selectedClient.id)
           .eq("content_type", "portfolio")
-          .eq("slug", row.slug)
+          .eq("slug", row.matchSlug)
           .limit(1)
           .maybeSingle();
 
@@ -550,9 +550,11 @@ function BulkImportPage() {
             ...(existingItem as unknown as PortfolioItem),
             portfolio_details: (details ?? undefined) as PortfolioItem["portfolio_details"],
           });
-          const formData = applyCoreToForm(base, core, row.slug, baseSort + i);
+          // never rewrite an existing project's slug
+          const formData = applyCoreToForm(base, core, row.matchSlug, baseSort + i);
           await updatePortfolio(contentId, selectedClient.id, formData, dynamic);
           rep.projectsUpdated++;
+
         } else {
           const formData = applyCoreToForm(
             emptyPortfolioForm(),
