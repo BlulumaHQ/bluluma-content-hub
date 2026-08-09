@@ -66,17 +66,6 @@ export function TopBar() {
             + New Client
           </Button>
         </Link>
-        <div className="ml-2 flex items-center gap-2 border-l pl-3">
-          {user?.email && (
-            <span className="hidden max-w-[180px] truncate text-xs text-muted-foreground sm:inline">
-              {user.email}
-            </span>
-          )}
-          <Button size="sm" variant="ghost" onClick={handleSignOut}>
-            <LogOut className="mr-1.5 h-4 w-4" />
-            Sign Out
-          </Button>
-        </div>
       </div>
     </header>
   );
