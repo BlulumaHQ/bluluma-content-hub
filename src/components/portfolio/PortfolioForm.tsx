@@ -171,10 +171,12 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
         type={type}
         value={String(form[name] ?? "")}
         placeholder={placeholder}
+        disabled={locked}
         onChange={(e) => set(name, e.target.value as PortfolioFormData[typeof name])}
       />
     </div>
-  );
+    );
+  };
 
   const Area = ({
     name,
@@ -201,10 +203,12 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
         rows={rows}
         placeholder={placeholder}
         value={String(form[name] ?? "")}
+        disabled={locked}
         onChange={(e) => set(name, e.target.value as PortfolioFormData[typeof name])}
       />
     </div>
-  );
+    );
+  };
 
   const handleImageUpload = useCallback(
     async (file: File) => {
