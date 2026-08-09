@@ -102,11 +102,16 @@ export interface ValidateOptions {
   strict: boolean;
   /** optional per-row image findings (matched gallery count keyed by row index) */
   galleryCounts?: Map<number, number>;
+  /** selected client name — used to validate a spreadsheet "Company" column */
+  clientName?: string;
 }
 
 export function validateImport(opts: ValidateOptions): ValidationResult {
   const { headers, dataRows, definitions, existingSlugs, strict } = opts;
   const mapping = buildImportMapping(headers, definitions);
+  const companyIdx = mapping.coreIndex["company"];
+  const expectedCompany = (opts.clientName ?? "").trim().toLowerCase();
+
 
   const columnIssues: Issue[] = [];
   const dynamicHeaders = new Set(
