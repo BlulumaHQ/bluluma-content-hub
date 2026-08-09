@@ -9,6 +9,7 @@ import { updatePortfolio, type PortfolioFormData } from "@/lib/portfolio";
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 import { GalleryManager } from "@/components/portfolio/GalleryManager";
 import { CategoryTagPanel } from "@/components/portfolio/CategoryTagPanel";
+import { DynamicFieldSection } from "@/components/portfolio/DynamicFieldSection";
 import type { ContentItem, PortfolioDetail, PortfolioItem } from "@/types";
 
 export const Route = createFileRoute("/portfolio/$id")({
@@ -108,6 +109,14 @@ function EditPortfolioPage() {
       {/* Category + tag assignment */}
       <div className="mt-6 max-w-3xl">
         <CategoryTagPanel contentId={item.id} clientId={selectedClient.id} />
+      </div>
+
+      {/* Phase 2: read-only dynamic metadata verification */}
+      <div className="mt-6 max-w-3xl">
+        <DynamicFieldSection
+          client={selectedClient}
+          details={item.portfolio_details ?? null}
+        />
       </div>
     </div>
   );
