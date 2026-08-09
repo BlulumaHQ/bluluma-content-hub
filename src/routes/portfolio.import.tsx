@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Upload,
@@ -31,6 +31,8 @@ import MetadataUpdateImport from "@/components/portfolio/MetadataUpdateImport";
 import {
   createPortfolio,
   emptyPortfolioForm,
+  portfolioFormFrom,
+  updatePortfolio,
   type PortfolioFormData,
 } from "@/lib/portfolio";
 import { extOf, readImageSize, removeStoredFile, uploadPortfolioImage } from "@/lib/media";
@@ -42,6 +44,14 @@ import {
   usedNames,
   type NamedImage,
 } from "@/lib/import-images";
+import { getPortfolioFieldDefinitions } from "@/lib/field-definitions";
+import {
+  CORE_KEYS,
+  importDynamicSaveInput,
+  slugifyTitle,
+} from "@/lib/portfolio-import-mapping";
+import { validateImport, type ValidatedRow } from "@/lib/portfolio-import-validation";
+import type { PortfolioItem } from "@/types";
 
 export const Route = createFileRoute("/portfolio/import")({
   head: () => ({
@@ -52,40 +62,6 @@ export const Route = createFileRoute("/portfolio/import")({
   }),
   component: BulkImportPage,
 });
-
-/** Every CSV column the importer understands. `title` is the only required one. */
-const CSV_COLUMNS = [
-  "title", "title_zh", "slug", "excerpt", "excerpt_zh", "body_content", "body_content_zh",
-  "status", "is_featured", "sort_order",
-  "category", "category_zh", "tag_1", "tag_1_zh", "tag_2", "tag_2_zh",
-  "city", "province", "country", "location", "role",
-  "project_status", "year_started", "year_completed", "project_year",
-  "floor_area_value", "floor_area_unit", "site_area_value", "site_area_unit",
-  "units_count", "storeys_count", "parking_spaces", "construction_budget",
-  "scope_of_work", "scope_of_work_zh", "key_features", "key_features_zh",
-  "services", "live_url",
-  "design_architect", "architect_of_record", "interior_designer", "landscape_architect",
-  "structural_engineer", "mechanical_engineer", "electrical_engineer", "civil_engineer",
-  "other_consultants", "general_contractor", "developer_owner_client", "photographer",
-  "other_credits", "awards", "publications",
-  "original_website_content", "internal_notes", "image_prefix", "expected_gallery_count",
-  "seo_title", "seo_title_zh", "seo_description", "seo_description_zh",
-  "image_file",
-] as const;
-
-type CsvKey = (typeof CSV_COLUMNS)[number];
-type CsvRow = Record<CsvKey, string>;
-
-interface RowState {
-  data: CsvRow;
-  featuredName: string | null;
-  coverIsFallback: boolean;
-  galleryNames: string[];
-  imageCount: number;
-  warnings: string[];
-  error?: string;
-  status: "pending" | "importing" | "success" | "failed";
-}
 
 interface ImportFailure {
   project: string;
@@ -98,28 +74,12 @@ interface ImportReport {
   projectsCreated: number;
   projectsUpdated: number;
   projectsFailed: number;
-  projectsWithWarnings: number;
   imagesUploaded: number;
   imagesSkipped: number;
   imagesUnmatched: number;
-  imagesMissing: number;
   imagesFailed: number;
-  featuredExplicit: number;
-  featuredFallback: number;
-  featuredNone: number;
   failures: ImportFailure[];
 }
-
-function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\u4e00-\u9fff\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
-
-
 
 function splitList(raw: string): string[] {
   return raw
@@ -200,70 +160,85 @@ function downloadCsv(csv: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-/** Map one CSV row onto the shared portfolio form payload. */
-function rowToFormData(row: CsvRow, sortOrder: number): PortfolioFormData {
-  return {
-    ...emptyPortfolioForm(),
-    title: row.title,
-    title_zh: row.title_zh,
-    slug: row.slug || slugify(row.title),
-    excerpt: row.excerpt,
-    excerpt_zh: row.excerpt_zh,
-    body_content: row.body_content,
-    body_content_zh: row.body_content_zh,
-    status: (["draft", "published", "archived"].includes(row.status)
-      ? row.status
-      : "published") as PortfolioFormData["status"],
-    is_featured: /^(1|true|yes|y)$/i.test(row.is_featured),
-    sort_order: Number(row.sort_order) || sortOrder,
-    seo_title: row.seo_title,
-    seo_title_zh: row.seo_title_zh,
-    seo_description: row.seo_description,
-    seo_description_zh: row.seo_description_zh,
-    live_url: row.live_url,
-    services: splitList(row.services),
-    project_year: row.project_year,
-    short_summary: row.excerpt,
-    location: row.location,
-    role: row.role,
-    city: row.city,
-    province: row.province,
-    country: row.country,
-    project_status: row.project_status,
-    year_started: row.year_started,
-    year_completed: row.year_completed,
-    floor_area_value: row.floor_area_value,
-    floor_area_unit: row.floor_area_unit || "sq ft",
-    site_area_value: row.site_area_value,
-    site_area_unit: row.site_area_unit || "sq ft",
-    units_count: row.units_count,
-    storeys_count: row.storeys_count,
-    parking_spaces: row.parking_spaces,
-    construction_budget: row.construction_budget,
-    scope_of_work: row.scope_of_work,
-    scope_of_work_zh: row.scope_of_work_zh,
-    key_features: row.key_features,
-    key_features_zh: row.key_features_zh,
-    design_architect: row.design_architect,
-    architect_of_record: row.architect_of_record,
-    interior_designer: row.interior_designer,
-    landscape_architect: row.landscape_architect,
-    structural_engineer: row.structural_engineer,
-    mechanical_engineer: row.mechanical_engineer,
-    electrical_engineer: row.electrical_engineer,
-    civil_engineer: row.civil_engineer,
-    other_consultants: row.other_consultants,
-    general_contractor: row.general_contractor,
-    developer_owner_client: row.developer_owner_client,
-    photographer: row.photographer,
-    other_credits: row.other_credits,
-    awards: row.awards,
-    publications: row.publications,
-    original_website_content: row.original_website_content,
-    internal_notes: row.internal_notes,
-    image_prefix: row.image_prefix,
-    expected_gallery_count: row.expected_gallery_count,
+const bool = (v: string) => /^(1|true|yes|y)$/i.test(v.trim());
+
+/**
+ * Apply only NON-EMPTY spreadsheet values on top of a base form. A blank cell
+ * never erases an existing value in this importer mode.
+ */
+function applyCoreToForm(
+  base: PortfolioFormData,
+  core: Record<string, string>,
+  slug: string,
+  fallbackSort: number,
+): PortfolioFormData {
+  const out: PortfolioFormData = { ...base, slug };
+  const set = (key: keyof PortfolioFormData, value: string) => {
+    if (value.trim() === "") return;
+    (out as unknown as Record<string, unknown>)[key] = value.trim();
   };
+
+  set("title", core.title);
+  set("title_zh", core.title_zh);
+  set("excerpt", core.excerpt);
+  set("excerpt_zh", core.excerpt_zh);
+  set("body_content", core.body_content);
+  set("body_content_zh", core.body_content_zh);
+  set("seo_title", core.seo_title);
+  set("seo_title_zh", core.seo_title_zh);
+  set("seo_description", core.seo_description);
+  set("seo_description_zh", core.seo_description_zh);
+  set("live_url", core.live_url);
+  set("project_year", core.project_year);
+  set("location", core.location);
+  set("role", core.role);
+  set("city", core.city);
+  set("province", core.province);
+  set("country", core.country);
+  set("project_status", core.project_status);
+  set("year_started", core.year_started);
+  set("year_completed", core.year_completed);
+  set("floor_area_value", core.floor_area_value);
+  set("floor_area_unit", core.floor_area_unit);
+  set("site_area_value", core.site_area_value);
+  set("site_area_unit", core.site_area_unit);
+  set("units_count", core.units_count);
+  set("storeys_count", core.storeys_count);
+  set("parking_spaces", core.parking_spaces);
+  set("construction_budget", core.construction_budget);
+  set("scope_of_work", core.scope_of_work);
+  set("scope_of_work_zh", core.scope_of_work_zh);
+  set("key_features", core.key_features);
+  set("key_features_zh", core.key_features_zh);
+  set("design_architect", core.design_architect);
+  set("architect_of_record", core.architect_of_record);
+  set("interior_designer", core.interior_designer);
+  set("landscape_architect", core.landscape_architect);
+  set("structural_engineer", core.structural_engineer);
+  set("mechanical_engineer", core.mechanical_engineer);
+  set("electrical_engineer", core.electrical_engineer);
+  set("civil_engineer", core.civil_engineer);
+  set("other_consultants", core.other_consultants);
+  set("general_contractor", core.general_contractor);
+  set("developer_owner_client", core.developer_owner_client);
+  set("photographer", core.photographer);
+  set("other_credits", core.other_credits);
+  set("awards", core.awards);
+  set("publications", core.publications);
+  set("original_website_content", core.original_website_content);
+  set("internal_notes", core.internal_notes);
+  set("image_prefix", core.image_prefix);
+  set("expected_gallery_count", core.expected_gallery_count);
+
+  if (core.excerpt?.trim() && !base.short_summary) out.short_summary = core.excerpt.trim();
+  if (core.services?.trim()) out.services = splitList(core.services);
+  if (core.status?.trim() && ["draft", "published", "archived"].includes(core.status.trim()))
+    out.status = core.status.trim() as PortfolioFormData["status"];
+  else if (!base.title) out.status = "published";
+  if (core.is_featured?.trim()) out.is_featured = bool(core.is_featured);
+  const sort = Number(core.sort_order);
+  out.sort_order = Number.isFinite(sort) && sort > 0 ? sort : base.sort_order || fallbackSort;
+  return out;
 }
 
 function BulkImportPage() {
@@ -271,114 +246,116 @@ function BulkImportPage() {
   const qc = useQueryClient();
   const [mode, setMode] = useState<"full" | "gallery" | "metadata" | "translations">("full");
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [dataRows, setDataRows] = useState<string[][]>([]);
   const [images, setImages] = useState<NamedImage[]>([]);
   const [readingZip, setReadingZip] = useState(false);
   const [replaceGallery, setReplaceGallery] = useState(false);
-  const [rows, setRows] = useState<RowState[]>([]);
+  const [strict, setStrict] = useState(true);
   const [parseError, setParseError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, label: "" });
+  const [rowStatus, setRowStatus] = useState<Record<number, string>>({});
   const [done, setDone] = useState(false);
   const [report, setReport] = useState<ImportReport | null>(null);
   const [exporting, setExporting] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const imagesInputRef = useRef<HTMLInputElement>(null);
 
+  const { data: definitions = [] } = useQuery({
+    queryKey: ["portfolio-field-definitions", selectedClient?.id],
+    queryFn: () => getPortfolioFieldDefinitions(selectedClient),
+    enabled: !!selectedClient,
+  });
+
+  const { data: existingSlugList = [] } = useQuery({
+    queryKey: ["portfolio-slugs", selectedClient?.id],
+    enabled: !!selectedClient,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("content_items")
+        .select("slug")
+        .eq("client_id", selectedClient!.id)
+        .eq("content_type", "portfolio");
+      if (error) throw error;
+      return (data ?? []).map((d) => String((d as { slug: string }).slug));
+    },
+  });
+
   const dedupedImages = useMemo(() => dedupePreferWebp(images), [images]);
 
+  const prefixOf = (cols: string[], idx: number | undefined) =>
+    idx === undefined ? "" : (cols[idx] ?? "").trim();
+
+  // --- dry run: parse → map → validate (NO writes) ------------------------
+  const validation = useMemo(() => {
+    if (headers.length === 0) return null;
+    const first = validateImport({
+      headers,
+      dataRows,
+      definitions,
+      existingSlugs: new Set(existingSlugList),
+      strict,
+    });
+    const prefixIdx = first.mapping.coreIndex["image_prefix"];
+    const galleryCounts = new Map<number, number>();
+    dataRows.forEach((cols, i) => {
+      const prefix = prefixOf(cols, prefixIdx);
+      if (!prefix) return;
+      galleryCounts.set(i, matchPrefix(prefix, dedupedImages).gallery.length);
+    });
+    return validateImport({
+      headers,
+      dataRows,
+      definitions,
+      existingSlugs: new Set(existingSlugList),
+      strict,
+      galleryCounts,
+    });
+  }, [headers, dataRows, definitions, existingSlugList, strict, dedupedImages]);
+
   const unmatchedNames = useMemo(() => {
-    if (dedupedImages.length === 0 || rows.length === 0) return [];
-    const matches = rows
-      .map((r) => r.data.image_prefix?.trim())
+    if (dedupedImages.length === 0 || !validation) return [];
+    const prefixIdx = validation.mapping.coreIndex["image_prefix"];
+    const matches = dataRows
+      .map((cols) => prefixOf(cols, prefixIdx))
       .filter(Boolean)
-      .map((p) => matchPrefix(p as string, dedupedImages));
+      .map((p) => matchPrefix(p, dedupedImages));
     const used = usedNames(matches);
     return dedupedImages.filter((img) => !used.has(img.name)).map((img) => img.name);
-  }, [dedupedImages, rows]);
+  }, [dedupedImages, dataRows, validation]);
 
   const resetImportState = () => {
     setCsvFile(null);
+    setHeaders([]);
+    setDataRows([]);
     setImages([]);
-    setRows([]);
     setParseError(null);
     setImporting(false);
     setProgress({ current: 0, total: 0, label: "" });
+    setRowStatus({});
     setDone(false);
     setReport(null);
     if (csvInputRef.current) csvInputRef.current.value = "";
     if (imagesInputRef.current) imagesInputRef.current.value = "";
   };
 
-  const reEvaluate = (current: RowState[], deduped: NamedImage[]): RowState[] =>
-    current.map((r) => {
-      const prefix = r.data.image_prefix?.trim();
-      const match = prefix
-        ? matchPrefix(prefix, deduped)
-        : { cover: null, coverIsGalleryFirst: false, gallery: [] as NamedImage[] };
-      const expected = parseInt(r.data.expected_gallery_count || "", 10);
-      const warnings: string[] = [];
-      if (prefix && !match.cover && match.gallery.length === 0) {
-        warnings.push(`No images match prefix "${prefix}"`);
-      }
-      if (prefix && match.coverIsGalleryFirst) {
-        warnings.push("No -cover file; gallery image 01 will be used as the featured image");
-      }
-      if (Number.isFinite(expected) && expected > 0 && match.gallery.length !== expected) {
-        warnings.push(`Expected ${expected} gallery images, found ${match.gallery.length}`);
-      }
-      return {
-        ...r,
-        featuredName: match.cover?.name ?? null,
-        coverIsFallback: match.coverIsGalleryFirst,
-        galleryNames: match.gallery.map((g) => g.name),
-        imageCount: (match.cover ? 1 : 0) + match.gallery.length,
-        warnings,
-        error: r.data.title ? undefined : "Missing title",
-      };
-    });
-
   const handleCsvChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setCsvFile(file);
     setDone(false);
+    setRowStatus({});
     setParseError(null);
     try {
-      const text = await file.text();
-      const matrix = parseCsv(text);
-      if (matrix.length < 1) throw new Error("CSV is empty");
-      const header = matrix[0].map((h) => h.trim().toLowerCase().replace(/^\uFEFF/, ""));
-      const idx: Partial<Record<CsvKey, number>> = {};
-      CSV_COLUMNS.forEach((k) => {
-        const i = header.indexOf(k);
-        if (i >= 0) idx[k] = i;
-      });
-      if (idx.title === undefined) {
-        throw new Error(
-          "CSV must contain a 'title' column. Download the template for the full column list.",
-        );
-      }
-      const parsed: RowState[] = matrix.slice(1).map((cols) => {
-        const data = {} as CsvRow;
-        CSV_COLUMNS.forEach((k) => {
-          const i = idx[k];
-          data[k] = i === undefined ? "" : (cols[i] ?? "").trim();
-        });
-        return {
-          data,
-          featuredName: null,
-          coverIsFallback: false,
-          galleryNames: [],
-          imageCount: 0,
-          warnings: [],
-          status: "pending" as const,
-          error: data.title ? undefined : "Missing title",
-        };
-      });
-      setRows(reEvaluate(parsed, dedupedImages));
+      const matrix = parseCsv(await file.text());
+      if (matrix.length < 2) throw new Error("CSV needs a header row and at least one data row.");
+      setHeaders(matrix[0]);
+      setDataRows(matrix.slice(1));
     } catch (err) {
       setParseError(err instanceof Error ? err.message : "Failed to parse CSV");
-      setRows([]);
+      setHeaders([]);
+      setDataRows([]);
     }
   };
 
@@ -396,8 +373,6 @@ function BulkImportPage() {
         }
       }
       setImages(collected);
-      const deduped = dedupePreferWebp(collected);
-      setRows((prev) => reEvaluate(prev, deduped));
       if (collected.length === 0 && files.length > 0) {
         toast.error("No supported images found (.jpg, .jpeg, .png, .webp).");
       }
@@ -415,7 +390,7 @@ function BulkImportPage() {
     nameZh: string,
     cache: Map<string, string>,
   ): Promise<string | null> => {
-    if (!name || !selectedClient) return null;
+    if (!name.trim() || !selectedClient) return null;
     const key = `cat:${name.toLowerCase()}`;
     if (cache.has(key)) return cache.get(key)!;
     const { data: existing } = await supabase
@@ -436,7 +411,7 @@ function BulkImportPage() {
         category_type: "portfolio",
         name,
         name_zh: nameZh || null,
-        slug: slugify(name) || null,
+        slug: slugifyTitle(name) || null,
         sort_order: 0,
         is_active: true,
       })
@@ -455,7 +430,7 @@ function BulkImportPage() {
     parentTagId: string | null,
     cache: Map<string, string>,
   ): Promise<string | null> => {
-    if (!name || !selectedClient) return null;
+    if (!name.trim() || !selectedClient) return null;
     const key = `tag${level}:${parentTagId ?? categoryId ?? ""}:${name.toLowerCase()}`;
     if (cache.has(key)) return cache.get(key)!;
     let q = supabase
@@ -476,7 +451,7 @@ function BulkImportPage() {
         client_id: selectedClient.id,
         name,
         name_zh: nameZh || null,
-        slug: slugify(name) || null,
+        slug: slugifyTitle(name) || null,
         tag_level: level,
         category_id: categoryId,
         parent_tag_id: level === 2 ? parentTagId : null,
@@ -490,42 +465,30 @@ function BulkImportPage() {
     return inserted.id;
   };
 
-  // --- import -----------------------------------------------------------
+  // --- commit -----------------------------------------------------------
 
   const handleImport = async () => {
-    if (!selectedClient) {
-      toast.error("Select a client first");
+    if (!selectedClient || !validation) return;
+    if (!validation.canCommit) {
+      toast.error("Resolve all errors before committing the import.");
       return;
     }
-    if (!csvFile || rows.length === 0) {
-      toast.error("Please upload a CSV file.");
-      return;
-    }
-    const needImages = rows.some((r) => r.data.image_prefix || r.data.image_file);
-    if (needImages && images.length === 0) {
-      toast.error("Please upload the image files (ZIP or multiple files) referenced by image_prefix.");
-      return;
-    }
+    const rows = validation.rows;
+    const prefixIdx = validation.mapping.coreIndex["image_prefix"];
 
     setImporting(true);
     setDone(false);
     setReport(null);
     const taxonomyCache = new Map<string, string>();
-    const next = [...rows];
     const rep: ImportReport = {
       projectsProcessed: 0,
       projectsCreated: 0,
       projectsUpdated: 0,
       projectsFailed: 0,
-      projectsWithWarnings: 0,
       imagesUploaded: 0,
       imagesSkipped: 0,
       imagesUnmatched: unmatchedNames.length,
-      imagesMissing: 0,
       imagesFailed: 0,
-      featuredExplicit: 0,
-      featuredFallback: 0,
-      featuredNone: 0,
       failures: [],
     };
 
@@ -538,55 +501,36 @@ function BulkImportPage() {
       .limit(1);
     const baseSort = (maxRow?.[0]?.sort_order ?? 0) + 1;
 
-    setProgress({ current: 0, total: next.length, label: "" });
+    setProgress({ current: 0, total: rows.length, label: "" });
 
-    for (let i = 0; i < next.length; i++) {
-      const row = next[i];
-      const title = row.data.title || `Row ${i + 1}`;
-      setProgress({ current: i, total: next.length, label: title });
-      if (!row.data.title) {
-        next[i] = { ...row, status: "failed", error: "Missing title" };
-        rep.projectsFailed++;
-        setRows([...next]);
-        continue;
-      }
-      next[i] = { ...row, status: "importing" };
-      setRows([...next]);
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const core = row.mapped.core;
+      setProgress({ current: i, total: rows.length, label: row.title });
+      setRowStatus((s) => ({ ...s, [row.rowNumber]: "importing" }));
       rep.projectsProcessed++;
-      if (row.warnings.length > 0) rep.projectsWithWarnings++;
 
       try {
-        const prefix = row.data.image_prefix?.trim();
+        const prefix = prefixOf(dataRows[i] ?? [], prefixIdx);
         const match = prefix
           ? matchPrefix(prefix, dedupedImages)
           : { cover: null, coverIsGalleryFirst: false, gallery: [] as NamedImage[] };
-
-        // Ordered list of unique images: cover first, then gallery (never duplicated).
         const ordered: { img: NamedImage; featured: boolean }[] = [];
         if (match.cover) ordered.push({ img: match.cover, featured: true });
         for (const g of match.gallery) {
           if (match.cover && g.name === match.cover.name) continue;
           ordered.push({ img: g, featured: false });
         }
-        if (match.cover) {
-          if (match.coverIsGalleryFirst) rep.featuredFallback++;
-          else rep.featuredExplicit++;
-        } else {
-          rep.featuredNone++;
-        }
-        const expected = parseInt(row.data.expected_gallery_count || "", 10);
-        if (Number.isFinite(expected) && expected > 0 && match.gallery.length < expected) {
-          rep.imagesMissing += expected - match.gallery.length;
-        }
 
-        // 1) find or create the project (match by client + slug so re-runs add images)
-        const slug = row.data.slug || slugify(row.data.title);
+        const dynamic = importDynamicSaveInput(row.mapped);
+
+        // 1) find or create/update the project (client + slug)
         const { data: existingItem } = await supabase
           .from("content_items")
-          .select("id")
+          .select("*")
           .eq("client_id", selectedClient.id)
           .eq("content_type", "portfolio")
-          .eq("slug", slug)
+          .eq("slug", row.slug)
           .limit(1)
           .maybeSingle();
 
@@ -594,42 +538,62 @@ function BulkImportPage() {
         let created = false;
         if (existingItem?.id) {
           contentId = existingItem.id as string;
+          const { data: details } = await supabase
+            .from("portfolio_details")
+            .select("*")
+            .eq("content_id", contentId)
+            .maybeSingle();
+          const base = portfolioFormFrom({
+            ...(existingItem as unknown as PortfolioItem),
+            portfolio_details: (details ?? undefined) as PortfolioItem["portfolio_details"],
+          });
+          const formData = applyCoreToForm(base, core, row.slug, baseSort + i);
+          await updatePortfolio(contentId, selectedClient.id, formData, dynamic);
           rep.projectsUpdated++;
         } else {
-          const formData = rowToFormData(row.data, baseSort + i);
-          formData.slug = slug;
-          contentId = await createPortfolio(selectedClient.id, formData);
+          const formData = applyCoreToForm(
+            emptyPortfolioForm(),
+            core,
+            row.slug,
+            baseSort + i,
+          );
+          contentId = await createPortfolio(selectedClient.id, formData, dynamic);
           created = true;
           rep.projectsCreated++;
         }
 
-        // 2) taxonomy: Category → Tag 1 → Tag 2 (only for newly created projects)
+        // 2) taxonomy for newly created projects
         if (created) {
-          const catId = await ensureCategory(row.data.category, row.data.category_zh, taxonomyCache);
+          const catId = await ensureCategory(core.category, core.category_zh, taxonomyCache);
           if (catId) {
             await supabase
               .from("content_categories")
               .insert({ content_id: contentId, category_id: catId });
           }
-          const tag1Id = await ensureTag(
-            row.data.tag_1, row.data.tag_1_zh, 1, catId, null, taxonomyCache,
-          );
+          const tag1Id = await ensureTag(core.tag_1, core.tag_1_zh, 1, catId, null, taxonomyCache);
           if (tag1Id) {
             await supabase.from("content_tags").insert({ content_id: contentId, tag_id: tag1Id });
-            const tag2Names = splitList(row.data.tag_2);
-            const tag2Zh = splitList(row.data.tag_2_zh);
+            const tag2Names = splitList(core.tag_2);
+            const tag2Zh = splitList(core.tag_2_zh);
             for (let t = 0; t < tag2Names.length; t++) {
               const tag2Id = await ensureTag(
-                tag2Names[t], tag2Zh[t] ?? "", 2, catId, tag1Id, taxonomyCache,
+                tag2Names[t],
+                tag2Zh[t] ?? "",
+                2,
+                catId,
+                tag1Id,
+                taxonomyCache,
               );
               if (tag2Id) {
-                await supabase.from("content_tags").insert({ content_id: contentId, tag_id: tag2Id });
+                await supabase
+                  .from("content_tags")
+                  .insert({ content_id: contentId, tag_id: tag2Id });
               }
             }
           }
         }
 
-        // 3) existing gallery (skip duplicates, or wipe when replacing)
+        // 3) gallery (unchanged image architecture)
         if (replaceGallery) {
           const { data: old } = await supabase
             .from("media_assets")
@@ -656,7 +620,6 @@ function BulkImportPage() {
             0,
           ) + 1;
 
-        // 4) upload each image, then insert its media_assets row
         let featuredUrl: string | null = null;
         for (const entry of ordered) {
           if (existingNames.has(entry.img.name.toLowerCase())) {
@@ -674,9 +637,9 @@ function BulkImportPage() {
               original_filename: entry.img.name,
               width_px: size.width,
               height_px: size.height,
-              alt_text: row.data.title,
-              alt_text_zh: row.data.title_zh || null,
-              image_credit: row.data.photographer || null,
+              alt_text: row.title,
+              alt_text_zh: core.title_zh || null,
+              image_credit: core.photographer || null,
               is_featured: entry.featured,
               sort_order: entry.featured ? 0 : sortCursor++,
             });
@@ -686,7 +649,7 @@ function BulkImportPage() {
           } catch (imgErr) {
             rep.imagesFailed++;
             rep.failures.push({
-              project: title,
+              project: row.title,
               filename: entry.img.name,
               reason: imgErr instanceof Error ? imgErr.message : "Upload failed",
             });
@@ -700,29 +663,28 @@ function BulkImportPage() {
             .eq("id", contentId);
         }
 
-        next[i] = { ...row, status: "success", error: undefined };
+        setRowStatus((s) => ({ ...s, [row.rowNumber]: "success" }));
       } catch (err) {
-        console.error("[import] row failed", row.data.title, err);
+        console.error("[import] row failed", row.title, err);
         rep.projectsFailed++;
         rep.failures.push({
-          project: title,
+          project: row.title,
           filename: "—",
           reason: err instanceof Error ? err.message : "Unknown error",
         });
-        next[i] = {
-          ...row,
-          status: "failed",
-          error: err instanceof Error ? err.message : "Unknown error",
-        };
+        setRowStatus((s) => ({
+          ...s,
+          [row.rowNumber]: err instanceof Error ? err.message : "failed",
+        }));
       }
-      setRows([...next]);
-      setProgress({ current: i + 1, total: next.length, label: title });
+      setProgress({ current: i + 1, total: rows.length, label: row.title });
     }
 
     setImporting(false);
     setReport(rep);
     setDone(true);
     qc.invalidateQueries({ queryKey: ["portfolio", selectedClient.id] });
+    qc.invalidateQueries({ queryKey: ["portfolio-slugs", selectedClient.id] });
     qc.invalidateQueries({ queryKey: ["dashboard-stats", selectedClient.id] });
     toast.success(
       `Imported ${rep.projectsCreated + rep.projectsUpdated} project(s), ${rep.imagesUploaded} image(s)`,
@@ -765,7 +727,10 @@ function BulkImportPage() {
           .select("content_id, categories(name)")
           .in("content_id", ids);
         ((cc ?? []) as unknown[]).forEach((raw) => {
-          const r = raw as { content_id: string; categories?: { name?: string } | { name?: string }[] | null };
+          const r = raw as {
+            content_id: string;
+            categories?: { name?: string } | { name?: string }[] | null;
+          };
           const list = Array.isArray(r.categories) ? r.categories : r.categories ? [r.categories] : [];
           list.forEach((c) => {
             if (!c?.name) return;
@@ -779,7 +744,10 @@ function BulkImportPage() {
         ((ct ?? []) as unknown[]).forEach((raw) => {
           const r = raw as {
             content_id: string;
-            tags?: { name?: string; tag_level?: number } | { name?: string; tag_level?: number }[] | null;
+            tags?:
+              | { name?: string; tag_level?: number }
+              | { name?: string; tag_level?: number }[]
+              | null;
           };
           const list = Array.isArray(r.tags) ? r.tags : r.tags ? [r.tags] : [];
           list.forEach((t) => {
@@ -788,10 +756,12 @@ function BulkImportPage() {
             target.set(r.content_id, [...(target.get(r.content_id) ?? []), t.name]);
           });
         });
-
       }
 
-      const header = CSV_COLUMNS.filter((c) => c !== "image_file");
+      const dynamicHeaders = definitions.flatMap((d) =>
+        (Array.isArray(d.source_columns) ? d.source_columns : []).map(String),
+      );
+      const header = [...CORE_KEYS.filter((c) => c !== "image_file"), ...dynamicHeaders];
       const data: string[][] = [[...header]];
       (items ?? []).forEach((it: Record<string, unknown>) => {
         const d = detailsMap.get(it.id as string) ?? {};
@@ -807,12 +777,16 @@ function BulkImportPage() {
             if (col === "tag_1") return (tag1Map.get(it.id as string) ?? []).join("; ");
             if (col === "tag_2") return (tag2Map.get(it.id as string) ?? []).join("; ");
             if (col === "category_zh" || col === "tag_1_zh" || col === "tag_2_zh") return "";
+            if (!CORE_KEYS.includes(col)) return "";
             return pick(col);
           }),
         );
       });
 
-      downloadCsv(toCsv(data), `${slugify(selectedClient.client_name)}-portfolio-${Date.now()}.csv`);
+      downloadCsv(
+        toCsv(data),
+        `${slugifyTitle(selectedClient.client_name)}-portfolio-${Date.now()}.csv`,
+      );
       toast.success("Export ready");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Export failed");
@@ -822,31 +796,24 @@ function BulkImportPage() {
   };
 
   const downloadTemplate = () => {
-    const header = CSV_COLUMNS.filter((c) => c !== "image_file");
-    const sample: Partial<Record<CsvKey, string>> = {
+    const dynamicHeaders = definitions.flatMap((d) =>
+      (Array.isArray(d.source_columns) ? d.source_columns : []).map(String),
+    );
+    const header = [...CORE_KEYS.filter((c) => c !== "image_file"), ...dynamicHeaders];
+    const sample: Record<string, string> = {
       title: "Ballatree Rd Residence",
       title_zh: "巴拉樹路住宅",
+      slug: "ballatree-rd-residence",
       status: "published",
       category: "Residential",
-      category_zh: "住宅",
       tag_1: "Single Family",
-      tag_1_zh: "獨立屋",
       tag_2: "Laneway House; Renovation",
       city: "West Vancouver",
       province: "BC",
       country: "Canada",
       project_status: "Completed",
-      year_started: "2019",
       year_completed: "2022",
-      project_year: "2022",
-      floor_area_value: "4800",
-      floor_area_unit: "sq ft",
-      storeys_count: "2",
-      scope_of_work: "Full architectural design and construction management.",
       services: "Construction Management; Design-Build",
-      design_architect: "Architect57",
-      general_contractor: "Bluluma Build",
-      photographer: "Jane Doe",
       image_prefix: "ballatree-rd",
       expected_gallery_count: "8",
     };
@@ -864,17 +831,9 @@ function BulkImportPage() {
     );
   }
 
-  const validRows = rows.filter((r) => !r.error);
-  const successCount = rows.filter((r) => r.status === "success").length;
-  const failedCount = rows.filter((r) => r.status === "failed").length;
-
   const modeSwitch = (
     <div className="inline-flex rounded-md border p-1">
-      <Button
-        size="sm"
-        variant={mode === "full" ? "default" : "ghost"}
-        onClick={() => setMode("full")}
-      >
+      <Button size="sm" variant={mode === "full" ? "default" : "ghost"} onClick={() => setMode("full")}>
         Full Import
       </Button>
       <Button
@@ -919,6 +878,7 @@ function BulkImportPage() {
     );
   }
 
+  const totals = validation?.totals;
 
   return (
     <div className="space-y-6">
@@ -928,7 +888,8 @@ function BulkImportPage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Bulk Import Portfolio</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Architect57-compliant CSV + image import for {selectedClient.client_name}.
+            Definition-driven CSV + image import for {selectedClient.client_name} ·{" "}
+            {definitions.length} active dynamic field definition(s).
           </p>
         </div>
         <div className="flex gap-2">
@@ -952,7 +913,7 @@ function BulkImportPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-lg border p-4">
           <Label className="mb-2 flex items-center gap-2 text-sm font-medium">
-            <FileText className="h-4 w-4" /> CSV File
+            <FileText className="h-4 w-4" /> 1. CSV File
           </Label>
           <input
             ref={csvInputRef}
@@ -963,19 +924,24 @@ function BulkImportPage() {
           />
           {csvFile && (
             <p className="mt-2 text-xs text-muted-foreground">
-              {csvFile.name} · {rows.length} project(s)
+              {csvFile.name} · {dataRows.length} row(s) · {headers.length} column(s)
             </p>
           )}
           {parseError && <p className="mt-2 text-xs text-destructive">{parseError}</p>}
-          <p className="mt-2 text-xs text-muted-foreground">
-            Taxonomy columns: <code>category</code> → <code>tag_1</code> → <code>tag_2</code>{" "}
-            (semicolon-separated). Unknown columns are ignored.
-          </p>
+          <label className="mt-3 flex items-center gap-2 text-xs font-medium">
+            <input
+              type="checkbox"
+              checked={strict}
+              onChange={(e) => setStrict(e.target.checked)}
+              disabled={importing}
+            />
+            Strict Spreadsheet Validation (any populated unmapped column blocks the import)
+          </label>
         </div>
 
         <div className="rounded-lg border p-4">
           <Label className="mb-2 flex items-center gap-2 text-sm font-medium">
-            <ImageIcon className="h-4 w-4" /> Images (ZIP or multiple files)
+            <ImageIcon className="h-4 w-4" /> 2. Images (ZIP or multiple files)
           </Label>
           <input
             ref={imagesInputRef}
@@ -998,8 +964,6 @@ function BulkImportPage() {
           <p className="mt-2 text-xs text-muted-foreground">
             Naming: <code>{"{image_prefix}-cover.jpg"}</code> = featured,{" "}
             <code>{"{image_prefix}-01.jpg … -NN.jpg"}</code> = gallery in numeric order.
-            <code>.jpg .jpeg .png .webp</code>, case-insensitive. Without a
-            <code>-cover</code> file, gallery image 01 becomes the featured image (not duplicated).
           </p>
           <label className="mt-3 flex items-center gap-2 text-xs">
             <input
@@ -1009,21 +973,62 @@ function BulkImportPage() {
             />
             Replace existing gallery for matched projects (destructive)
           </label>
-          {replaceGallery && (
-            <p className="mt-1 text-xs text-destructive">
-              Existing gallery images of matched projects will be deleted before import.
-            </p>
-          )}
         </div>
       </div>
+
+      {validation && (
+        <div className="rounded-lg border">
+          <div className="border-b p-3">
+            <p className="text-sm font-medium">3. Column Mapping Report</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Every column resolves to a destination or is reported as an error.
+            </p>
+          </div>
+          <div className="max-h-80 overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Column</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Destination</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {validation.mapping.columns.map((c) => (
+                  <TableRow key={`${c.index}-${c.header}`}>
+                    <TableCell className="text-xs font-medium">{c.header || "(blank)"}</TableCell>
+                    <TableCell className="text-xs">{c.type}</TableCell>
+                    <TableCell className="font-mono text-xs">{c.destination}</TableCell>
+                    <TableCell className="text-xs">
+                      {c.status === "mapped" ? (
+                        <span className="text-emerald-600">
+                          Mapped{c.note ? ` · ${c.note}` : ""}
+                        </span>
+                      ) : (
+                        <span className="text-destructive">ERROR: Unmapped</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
+      {validation && validation.columnIssues.length > 0 && (
+        <ul className="rounded-lg border border-destructive/40 p-4 text-xs text-destructive">
+          {validation.columnIssues.map((issue, i) => (
+            <li key={i}>{issue.message}</li>
+          ))}
+        </ul>
+      )}
 
       {unmatchedNames.length > 0 && (
         <div className="rounded-lg border border-amber-500/40 p-4">
           <p className="text-sm font-medium text-amber-600">
             UNMATCHED IMAGES ({unmatchedNames.length})
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            These files match no <code>image_prefix</code> and will not be imported.
           </p>
           <ul className="mt-2 grid grid-cols-2 gap-x-4 text-xs text-muted-foreground md:grid-cols-3">
             {unmatchedNames.map((n) => (
@@ -1045,118 +1050,99 @@ function BulkImportPage() {
         </div>
       )}
 
-      {rows.length > 0 && (
+      {validation && totals && (
         <div className="rounded-lg border">
-          <div className="flex items-center justify-between border-b p-3">
-            <p className="text-sm font-medium">
-              Preview ({rows.length} projects, {validRows.length} valid)
-            </p>
-            <Button onClick={handleImport} disabled={importing || validRows.length === 0}>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
+            <div className="text-sm">
+              <p className="font-medium">4. Dry Run Preview — no data has been written yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Rows {totals.rows} · New {totals.create} · Updates {totals.update} ·{" "}
+                <span className={totals.errors ? "text-destructive" : ""}>
+                  Errors {totals.errors}
+                </span>{" "}
+                · <span className="text-amber-600">Warnings {totals.warnings}</span>
+              </p>
+            </div>
+            <Button onClick={handleImport} disabled={importing || !validation.canCommit}>
               {importing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Upload className="mr-2 h-4 w-4" />
               )}
-              Import {validRows.length} project(s)
+              Commit Import
             </Button>
           </div>
+          {!validation.canCommit && (
+            <p className="border-b p-3 text-xs text-destructive">
+              Commit is blocked while errors exist{strict ? " (strict validation is ON)" : ""}.
+            </p>
+          )}
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Action</TableHead>
                   <TableHead>Title</TableHead>
-                  <TableHead>Category → Tag 1 → Tag 2</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Images</TableHead>
+                  <TableHead>Slug</TableHead>
+                  <TableHead>Category › Tag 1 › Tag 2</TableHead>
+                  <TableHead>Specs</TableHead>
+                  <TableHead>Credits</TableHead>
+                  <TableHead>Issues</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r, idx) => {
-                  const expected = parseInt(r.data.expected_gallery_count || "", 10);
-                  const mismatch =
-                    Number.isFinite(expected) && expected > 0 && r.galleryNames.length !== expected;
-                  return (
-                    <TableRow key={idx}>
-                      <TableCell className="font-medium">
-                        {r.data.title || <span className="text-destructive">—</span>}
-                        {r.data.title_zh && (
-                          <span className="block text-xs text-muted-foreground">{r.data.title_zh}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {[r.data.category, r.data.tag_1, r.data.tag_2].filter(Boolean).join(" › ") || "—"}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {[r.data.city, r.data.province].filter(Boolean).join(", ") || r.data.location || "—"}
-                      </TableCell>
-                      <TableCell className="align-top">
-                        {r.data.image_prefix || r.data.image_file ? (
-                          <div className="space-y-1 text-xs">
-                            <div>
-                              Cover:{" "}
-                              {r.featuredName ? (
-                                <span className="text-green-600">
-                                  ✓ {r.featuredName}
-                                  {r.coverIsFallback ? " (fallback)" : ""}
-                                </span>
-                              ) : (
-                                <span className="text-destructive">Not Found</span>
-                              )}
-                            </div>
-                            <div className={mismatch ? "text-amber-600" : "text-green-600"}>
-                              Gallery: {r.galleryNames.length}
-                              {Number.isFinite(expected) && expected > 0 ? ` / ${expected}` : ""}
-                            </div>
-                            {r.galleryNames.length > 0 && (
-                              <ul className="text-muted-foreground">
-                                {r.galleryNames.map((n, gi) => (
-                                  <li key={n}>
-                                    {String(gi + 1).padStart(2, "0")} {n}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                            {r.imageCount === 0 && (
-                              <span className="inline-flex items-center gap-1 text-destructive">
-                                <XCircle className="h-3 w-3" /> No matching images found
-                              </span>
-                            )}
-                            {r.warnings.map((w) => (
-                              <div key={w} className="text-amber-600">
-                                WARNING: {w}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">none</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {r.status === "success" ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                            <CheckCircle2 className="h-3 w-3" /> Imported
-                          </span>
-                        ) : r.status === "importing" ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                            <Loader2 className="h-3 w-3 animate-spin" /> Importing
-                          </span>
-                        ) : r.status === "failed" ? (
-                          <span
-                            className="inline-flex items-center gap-1 text-xs text-destructive"
-                            title={r.error}
-                          >
-                            <XCircle className="h-3 w-3" /> {r.error ?? "Failed"}
-                          </span>
-                        ) : r.error ? (
-                          <span className="text-xs text-destructive">{r.error}</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Pending</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {validation.rows.map((r: ValidatedRow) => (
+                  <TableRow key={r.rowNumber}>
+                    <TableCell className="text-xs uppercase">
+                      {r.action === "invalid" ? (
+                        <span className="text-destructive">Blocked</span>
+                      ) : r.action === "update" ? (
+                        "Update"
+                      ) : (
+                        "Create"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm font-medium">{r.title || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{r.slug || "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {[r.category, r.tag1, r.tag2].filter(Boolean).join(" › ") || "—"}
+                    </TableCell>
+                    <TableCell className="text-xs">{r.mapped.specificationCount}</TableCell>
+                    <TableCell className="text-xs">{r.mapped.creditCount}</TableCell>
+                    <TableCell className="max-w-[26rem] space-y-1 text-xs">
+                      {r.issues.map((issue, i) => (
+                        <div
+                          key={i}
+                          className={
+                            issue.severity === "error"
+                              ? "text-destructive"
+                              : issue.severity === "warning"
+                                ? "text-amber-600"
+                                : "text-muted-foreground"
+                          }
+                        >
+                          {issue.severity.toUpperCase()}: {issue.message}
+                        </div>
+                      ))}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {rowStatus[r.rowNumber] === "success" ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-600">
+                          <CheckCircle2 className="h-3 w-3" /> Imported
+                        </span>
+                      ) : rowStatus[r.rowNumber] === "importing" ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                      ) : rowStatus[r.rowNumber] ? (
+                        <span className="inline-flex items-center gap-1 text-destructive">
+                          <XCircle className="h-3 w-3" /> {rowStatus[r.rowNumber]}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Pending</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
@@ -1166,15 +1152,14 @@ function BulkImportPage() {
       {done && report && (
         <div className="space-y-3 rounded-lg border p-4">
           <p className="font-medium">Import complete</p>
-          <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
             <div>
               <p className="font-medium">PROJECTS</p>
               <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
                 <li>{report.projectsProcessed} processed</li>
                 <li>{report.projectsCreated} created</li>
-                <li>{report.projectsUpdated} matched existing (images added)</li>
+                <li>{report.projectsUpdated} updated</li>
                 <li>{report.projectsFailed} failed</li>
-                <li>{report.projectsWithWarnings} with warnings</li>
               </ul>
             </div>
             <div>
@@ -1183,57 +1168,24 @@ function BulkImportPage() {
                 <li>{report.imagesUploaded} uploaded</li>
                 <li>{report.imagesSkipped} already existed</li>
                 <li>{report.imagesUnmatched} unmatched</li>
-                <li>{report.imagesMissing} missing versus expected counts</li>
                 <li>{report.imagesFailed} failed</li>
-              </ul>
-            </div>
-            <div>
-              <p className="font-medium">FEATURED IMAGES</p>
-              <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                <li>{report.featuredExplicit} explicit cover images</li>
-                <li>{report.featuredFallback} fallback to gallery image 01</li>
-                <li>{report.featuredNone} projects without images</li>
               </ul>
             </div>
           </div>
 
           {report.failures.length > 0 && (
             <div>
-              <p className="text-sm font-medium text-destructive">FAILED FILES</p>
-              <div className="mt-1 overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Project</TableHead>
-                      <TableHead>Filename</TableHead>
-                      <TableHead>Reason</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {report.failures.map((f, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="text-xs">{f.project}</TableCell>
-                        <TableCell className="text-xs">{f.filename}</TableCell>
-                        <TableCell className="text-xs text-destructive">{f.reason}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <p className="text-sm font-medium text-destructive">FAILURES</p>
+              <ul className="mt-1 list-disc pl-5 text-xs text-muted-foreground">
+                {report.failures.map((f, i) => (
+                  <li key={i}>
+                    <strong>{f.project}</strong> · {f.filename} — {f.reason}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
-          {failedCount > 0 && (
-            <ul className="list-disc pl-5 text-xs text-muted-foreground">
-              {rows
-                .filter((r) => r.status === "failed")
-                .map((r, i) => (
-                  <li key={i}>
-                    <strong>{r.data.title || "(no title)"}</strong>: {r.error}
-                  </li>
-                ))}
-            </ul>
-          )}
           <div className="mt-4 flex gap-2">
             <Button variant="outline" onClick={resetImportState}>
               <RotateCcw className="mr-2 h-4 w-4" /> Import Another CSV

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CheckCircle2, FileText, Loader2, RotateCcw, Upload, XCircle } from "lucide-react";
 
@@ -15,7 +15,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  buildLegacyOverrides,
+  getPortfolioFieldDefinitions,
+  mergeAdditionalProjectData,
+  type DynamicMetadataState,
+  type PortfolioFieldDefinition,
+} from "@/lib/field-definitions";
+import { buildImportMapping, mapRow } from "@/lib/portfolio-import-mapping";
 import type { Client } from "@/types";
+
 
 /** Minimal CSV parser (quoted fields, embedded commas/newlines). */
 function parseCsv(text: string): string[][] {
@@ -190,6 +199,11 @@ interface Row {
   matched: boolean;
   contentPayload: Record<string, unknown>;
   detailPayload: Record<string, unknown>;
+  /** dynamic definitions with a value on this row (definition-driven) */
+  dynamicDefs: PortfolioFieldDefinition[];
+  /** dynamic definitions explicitly cleared with [CLEAR] */
+  clearedDefs: PortfolioFieldDefinition[];
+  dynamicState: DynamicMetadataState;
   changedFields: string[];
   warnings: string[];
   status: "pending" | "importing" | "success" | "skipped" | "failed";
@@ -199,8 +213,13 @@ interface Row {
 export default function MetadataUpdateImport({ client }: { client: Client }) {
   const qc = useQueryClient();
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const { data: definitions = [] } = useQuery({
+    queryKey: ["portfolio-field-definitions", client.id],
+    queryFn: () => getPortfolioFieldDefinitions(client),
+  });
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+
   const [parseError, setParseError] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -240,11 +259,14 @@ export default function MetadataUpdateImport({ client }: { client: Client }) {
     try {
       const table = parseCsv(await file.text());
       if (table.length < 2) throw new Error("CSV needs a header row and at least one data row.");
-      const header = table[0].map((h) => h.trim().toLowerCase());
-      const idx = (k: string) => header.indexOf(k);
-      const slugIdx = idx("slug");
-      const titleIdx = idx("title");
-      if (slugIdx === -1 && titleIdx === -1)
+      const rawHeader = table[0];
+      const mapping = buildImportMapping(rawHeader, definitions);
+      const header = rawHeader.map((h) => h.trim().toLowerCase());
+      const idx = (k: string) => {
+        const viaAlias = mapping.coreIndex[k];
+        return viaAlias === undefined ? header.indexOf(k) : viaAlias;
+      };
+      if (idx("slug") === -1 && idx("title") === -1)
         throw new Error("CSV must contain a `slug` or `title` column to match existing projects.");
 
       const parsed: Row[] = table.slice(1).map((cols) => {
@@ -275,6 +297,31 @@ export default function MetadataUpdateImport({ client }: { client: Client }) {
           changedFields.push(key);
         }
 
+        // Dynamic metadata — definition-driven, no client-specific field map.
+        const mapped = mapRow(cols, mapping);
+        const dynamicDefs: PortfolioFieldDefinition[] = [];
+        const clearedDefs: PortfolioFieldDefinition[] = [];
+        const dynamicState: DynamicMetadataState = {};
+        for (const def of mapped.populatedDefinitions) {
+          const draft = mapped.dynamic[def.section]?.[def.field_key];
+          if (!draft) continue;
+          if (draft.value.trim() === CLEAR) {
+            clearedDefs.push(def);
+            dynamicState[def.section] ??= {};
+            dynamicState[def.section][def.field_key] = { value: "" };
+            changedFields.push(`${def.section}.${def.field_key} (cleared)`);
+          } else {
+            dynamicDefs.push(def);
+            dynamicState[def.section] ??= {};
+            dynamicState[def.section][def.field_key] = draft;
+            changedFields.push(`${def.section}.${def.field_key}`);
+          }
+        }
+
+        for (const u of mapped.unmapped) {
+          warnings.push(`Unmapped column "${u.header}" has value "${u.value}" — ignored`);
+        }
+
         if (!slug) warnings.push("Missing slug/title — cannot match");
         if (idx("status") !== -1 && get("status").trim() && !("status" in contentPayload))
           warnings.push(`Unknown status "${get("status").trim()}" — ignored`);
@@ -286,9 +333,13 @@ export default function MetadataUpdateImport({ client }: { client: Client }) {
           matched: false,
           contentPayload,
           detailPayload,
+          dynamicDefs,
+          clearedDefs,
+          dynamicState,
           changedFields,
           warnings,
           status: "pending",
+
         };
       });
 
@@ -359,14 +410,34 @@ export default function MetadataUpdateImport({ client }: { client: Client }) {
             .eq("client_id", client.id);
           if (error) throw new Error(error.message);
         }
-        if (Object.keys(row.detailPayload).length) {
+        const touchedDefs = [...row.dynamicDefs, ...row.clearedDefs];
+        if (Object.keys(row.detailPayload).length || touchedDefs.length) {
           const { data: existing, error: fetchErr } = await supabase
             .from("portfolio_details")
-            .select("id")
+            .select("id, additional_project_data")
             .eq("content_id", row.contentId)
             .maybeSingle();
           if (fetchErr) throw new Error(fetchErr.message);
-          const payload = { ...row.detailPayload, updated_at: new Date().toISOString() };
+
+          // Dynamic values are authoritative and applied last: JSONB merge is
+          // non-destructive, and [CLEAR] removes the key + NULLs mapped legacy columns.
+          const dynamicPart = touchedDefs.length
+            ? {
+                ...buildLegacyOverrides(touchedDefs, row.dynamicState),
+                additional_project_data: mergeAdditionalProjectData(
+                  (existing as { additional_project_data?: unknown } | null)
+                    ?.additional_project_data,
+                  touchedDefs,
+                  row.dynamicState,
+                ),
+              }
+            : {};
+
+          const payload = {
+            ...row.detailPayload,
+            ...dynamicPart,
+            updated_at: new Date().toISOString(),
+          };
           if (existing) {
             const { error } = await supabase
               .from("portfolio_details")
@@ -380,6 +451,7 @@ export default function MetadataUpdateImport({ client }: { client: Client }) {
             if (error) throw new Error(error.message);
           }
         }
+
         row.status = "success";
         row.message = `${row.changedFields.length} field(s) updated`;
         updated++;
