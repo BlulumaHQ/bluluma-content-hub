@@ -259,11 +259,14 @@ export default function MetadataUpdateImport({ client }: { client: Client }) {
     try {
       const table = parseCsv(await file.text());
       if (table.length < 2) throw new Error("CSV needs a header row and at least one data row.");
-      const header = table[0].map((h) => h.trim().toLowerCase());
-      const idx = (k: string) => header.indexOf(k);
-      const slugIdx = idx("slug");
-      const titleIdx = idx("title");
-      if (slugIdx === -1 && titleIdx === -1)
+      const rawHeader = table[0];
+      const mapping = buildImportMapping(rawHeader, definitions);
+      const header = rawHeader.map((h) => h.trim().toLowerCase());
+      const idx = (k: string) => {
+        const viaAlias = mapping.coreIndex[k];
+        return viaAlias === undefined ? header.indexOf(k) : viaAlias;
+      };
+      if (idx("slug") === -1 && idx("title") === -1)
         throw new Error("CSV must contain a `slug` or `title` column to match existing projects.");
 
       const parsed: Row[] = table.slice(1).map((cols) => {
@@ -294,6 +297,31 @@ export default function MetadataUpdateImport({ client }: { client: Client }) {
           changedFields.push(key);
         }
 
+        // Dynamic metadata — definition-driven, no client-specific field map.
+        const mapped = mapRow(cols, mapping);
+        const dynamicDefs: PortfolioFieldDefinition[] = [];
+        const clearedDefs: PortfolioFieldDefinition[] = [];
+        const dynamicState: DynamicMetadataState = {};
+        for (const def of mapped.populatedDefinitions) {
+          const draft = mapped.dynamic[def.section]?.[def.field_key];
+          if (!draft) continue;
+          if (draft.value.trim() === CLEAR) {
+            clearedDefs.push(def);
+            dynamicState[def.section] ??= {};
+            dynamicState[def.section][def.field_key] = { value: "" };
+            changedFields.push(`${def.section}.${def.field_key} (cleared)`);
+          } else {
+            dynamicDefs.push(def);
+            dynamicState[def.section] ??= {};
+            dynamicState[def.section][def.field_key] = draft;
+            changedFields.push(`${def.section}.${def.field_key}`);
+          }
+        }
+
+        for (const u of mapped.unmapped) {
+          warnings.push(`Unmapped column "${u.header}" has value "${u.value}" — ignored`);
+        }
+
         if (!slug) warnings.push("Missing slug/title — cannot match");
         if (idx("status") !== -1 && get("status").trim() && !("status" in contentPayload))
           warnings.push(`Unknown status "${get("status").trim()}" — ignored`);
@@ -305,9 +333,13 @@ export default function MetadataUpdateImport({ client }: { client: Client }) {
           matched: false,
           contentPayload,
           detailPayload,
+          dynamicDefs,
+          clearedDefs,
+          dynamicState,
           changedFields,
           warnings,
           status: "pending",
+
         };
       });
 
