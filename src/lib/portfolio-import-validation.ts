@@ -29,7 +29,10 @@ export interface ValidatedRow {
   mapped: MappedRow;
   title: string;
   slug: string;
+  /** slug actually used to look up an existing project (supplied slug wins) */
+  matchSlug: string;
   slugResolution: SlugResolution;
+
   category: string;
   tag1: string;
   tag2: string;
