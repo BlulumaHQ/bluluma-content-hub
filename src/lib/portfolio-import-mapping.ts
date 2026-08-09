@@ -45,7 +45,10 @@ export type CoreKind =
   | "system"
   | "internal"
   | "reference"
+  | "row-reference"
+  | "client-validation"
   | "legacy-metadata";
+
 
 export interface CoreFieldSpec {
   key: string;
