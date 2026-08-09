@@ -217,3 +217,209 @@ export function buildDynamicMetadata(
 
   return sections;
 }
+
+/* ------------------------------------------------------------------ *
+ * Phase 3 — editable dynamic metadata (JSONB + generic legacy dual-write)
+ * ------------------------------------------------------------------ */
+
+/** Draft state for one dynamic field. Strings keep inputs controlled. */
+export interface DynamicFieldDraft {
+  /** Primary value / display text as typed. */
+  value: string;
+  /** Unit for measurement fields. */
+  unit?: string;
+  /** Any other JSON keys we must preserve untouched. */
+  extra?: Record<string, unknown>;
+}
+
+/** section -> field_key -> draft */
+export type DynamicMetadataState = Record<string, Record<string, DynamicFieldDraft>>;
+
+export interface LegacyOverrides {
+  [column: string]: string | number | null;
+}
+
+const settingsOf = (def: PortfolioFieldDefinition) =>
+  (def.settings ?? {}) as Record<string, unknown>;
+
+const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+
+/** Legacy columns a definition set maps onto (used to lock duplicate inputs). */
+export function mappedLegacyColumns(definitions: PortfolioFieldDefinition[]): Set<string> {
+  const cols = new Set<string>();
+  for (const def of definitions) {
+    const s = settingsOf(def);
+    for (const key of ["legacy_column", "legacy_value_column", "legacy_unit_column"]) {
+      const c = s[key];
+      if (typeof c === "string" && c) cols.add(c);
+    }
+  }
+  return cols;
+}
+
+/** Same resolution as Phase 2 (JSONB first, legacy fallback) turned into drafts. */
+export function buildDynamicFormState(
+  definitions: PortfolioFieldDefinition[],
+  details: PortfolioDetail | null | undefined,
+): DynamicMetadataState {
+  const extra = (details?.additional_project_data ?? {}) as Record<string, unknown>;
+  const state: DynamicMetadataState = {};
+
+  for (const def of definitions) {
+    const jsonSection = extra?.[def.section] as Record<string, unknown> | undefined;
+    const raw = resolveRawValue(def, jsonSection, details);
+    const s = settingsOf(def);
+    const valueKey = (s["value_key"] as string) ?? "value";
+    const unitKey = (s["unit_key"] as string) ?? "unit";
+
+    let draft: DynamicFieldDraft = { value: "" };
+
+    if (raw !== undefined && raw !== null) {
+      if (typeof raw === "object" && !Array.isArray(raw)) {
+        const obj = { ...(raw as Record<string, unknown>) };
+        if (def.field_type === "currency") {
+          draft.value = str(obj["display"] ?? obj[valueKey]);
+          delete obj["display"];
+          delete obj[valueKey];
+        } else {
+          draft.value = str(obj[valueKey]);
+          draft.unit = str(obj[unitKey]);
+          delete obj[valueKey];
+          delete obj[unitKey];
+        }
+        if (Object.keys(obj).length > 0) draft.extra = obj;
+      } else if (Array.isArray(raw)) {
+        draft.value = raw.filter((v) => !isEmpty(v)).map((v) => String(v)).join(", ");
+      } else {
+        draft.value = str(raw);
+      }
+    }
+
+    if (def.field_type === "measurement" && !draft.unit) {
+      const fallbackUnit = s["default_unit"];
+      draft.unit = typeof fallbackUnit === "string" ? fallbackUnit : "";
+    }
+
+    state[def.section] ??= {};
+    state[def.section][def.field_key] = draft;
+  }
+
+  return state;
+}
+
+/** Normalized JSON value for one field, or undefined when the field is empty. */
+export function normalizeDynamicValue(
+  def: PortfolioFieldDefinition,
+  draft: DynamicFieldDraft | undefined,
+): unknown {
+  const value = (draft?.value ?? "").trim();
+  if (value === "") return undefined;
+
+  const s = settingsOf(def);
+  const valueKey = (s["value_key"] as string) ?? "value";
+  const unitKey = (s["unit_key"] as string) ?? "unit";
+  const extra = draft?.extra ?? {};
+
+  if (def.field_type === "measurement") {
+    const n = Number(value.replace(/,/g, ""));
+    const unit = (draft?.unit ?? "").trim() || str(s["default_unit"]).trim();
+    const out: Record<string, unknown> = { ...extra };
+    out[valueKey] = Number.isFinite(n) ? n : value;
+    if (unit) out[unitKey] = unit;
+    return out;
+  }
+
+  if (def.field_type === "currency") {
+    return { ...extra, display: value };
+  }
+
+  if (def.field_type === "number") {
+    const n = Number(value.replace(/,/g, ""));
+    return Number.isFinite(n) ? n : value;
+  }
+
+  // year + text and anything else: clean string
+  return value;
+}
+
+/**
+ * Non-destructive merge: keeps unrelated top-level keys and unrelated field keys,
+ * removes cleared fields entirely.
+ */
+export function mergeAdditionalProjectData(
+  existing: unknown,
+  definitions: PortfolioFieldDefinition[],
+  state: DynamicMetadataState,
+): Record<string, unknown> {
+  const base: Record<string, unknown> =
+    existing && typeof existing === "object" && !Array.isArray(existing)
+      ? { ...(existing as Record<string, unknown>) }
+      : {};
+
+  for (const def of definitions) {
+    const prevSection = base[def.section];
+    const section: Record<string, unknown> =
+      prevSection && typeof prevSection === "object" && !Array.isArray(prevSection)
+        ? { ...(prevSection as Record<string, unknown>) }
+        : {};
+
+    const normalized = normalizeDynamicValue(def, state[def.section]?.[def.field_key]);
+    if (normalized === undefined) delete section[def.field_key];
+    else section[def.field_key] = normalized;
+
+    base[def.section] = section;
+  }
+
+  return base;
+}
+
+/** Generic legacy dual-write values derived from the dynamic edits. */
+export function buildLegacyOverrides(
+  definitions: PortfolioFieldDefinition[],
+  state: DynamicMetadataState,
+): LegacyOverrides {
+  const overrides: LegacyOverrides = {};
+
+  for (const def of definitions) {
+    const draft = state[def.section]?.[def.field_key];
+    const normalized = normalizeDynamicValue(def, draft);
+    const s = settingsOf(def);
+    const valueKey = (s["value_key"] as string) ?? "value";
+    const unitKey = (s["unit_key"] as string) ?? "unit";
+
+    const valueCol = s["legacy_value_column"] as string | undefined;
+    const unitCol = s["legacy_unit_column"] as string | undefined;
+    if (valueCol) {
+      if (normalized === undefined) {
+        overrides[valueCol] = null;
+        if (unitCol) overrides[unitCol] = null;
+      } else {
+        const obj = normalized as Record<string, unknown>;
+        const v = obj?.[valueKey];
+        overrides[valueCol] = typeof v === "number" ? v : v === undefined ? null : String(v);
+        if (unitCol) {
+          const u = obj?.[unitKey];
+          overrides[unitCol] = isEmpty(u) ? null : String(u);
+        }
+      }
+      continue;
+    }
+
+    const column = s["legacy_column"] as string | undefined;
+    if (!column) continue;
+
+    if (normalized === undefined) {
+      overrides[column] = null;
+    } else if (typeof normalized === "number") {
+      overrides[column] = normalized;
+    } else if (typeof normalized === "object") {
+      const obj = normalized as Record<string, unknown>;
+      const display = obj["display"] ?? obj[valueKey];
+      overrides[column] = isEmpty(display) ? null : String(display);
+    } else {
+      overrides[column] = String(normalized);
+    }
+  }
+
+  return overrides;
+}
