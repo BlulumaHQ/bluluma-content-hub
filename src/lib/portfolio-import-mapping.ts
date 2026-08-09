@@ -135,7 +135,12 @@ export const CORE_FIELDS: CoreFieldSpec[] = [
 
   { key: "original_website_content", kind: "reference", destination: "portfolio_details.original_website_content", aliases: ["original detail text (ref.)", "original detail text (ref)", "original detail text", "original website content"] },
   { key: "internal_notes", kind: "internal", destination: "portfolio_details.internal_notes", aliases: ["notes for sony", "internal notes", "notes (internal)", "notes"] },
+
+  // Spreadsheet-only columns: recognised, never stored as project metadata.
+  { key: "row_reference", kind: "row-reference", destination: "Row Reference (spreadsheet sequence)", aliases: ["#", "no", "no.", "row", "row #", "item #"] },
+  { key: "company", kind: "client-validation", destination: "selectedClient.client_name", aliases: ["company", "company name", "client company"] },
 ];
+
 
 /** All canonical core keys (legacy CSV contract). */
 export const CORE_KEYS = CORE_FIELDS.map((f) => f.key);
