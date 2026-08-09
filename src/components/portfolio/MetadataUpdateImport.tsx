@@ -199,6 +199,11 @@ interface Row {
   matched: boolean;
   contentPayload: Record<string, unknown>;
   detailPayload: Record<string, unknown>;
+  /** dynamic definitions with a value on this row (definition-driven) */
+  dynamicDefs: PortfolioFieldDefinition[];
+  /** dynamic definitions explicitly cleared with [CLEAR] */
+  clearedDefs: PortfolioFieldDefinition[];
+  dynamicState: DynamicMetadataState;
   changedFields: string[];
   warnings: string[];
   status: "pending" | "importing" | "success" | "skipped" | "failed";
@@ -208,8 +213,13 @@ interface Row {
 export default function MetadataUpdateImport({ client }: { client: Client }) {
   const qc = useQueryClient();
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const { data: definitions = [] } = useQuery({
+    queryKey: ["portfolio-field-definitions", client.id],
+    queryFn: () => getPortfolioFieldDefinitions(client),
+  });
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+
   const [parseError, setParseError] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
   const [importing, setImporting] = useState(false);
