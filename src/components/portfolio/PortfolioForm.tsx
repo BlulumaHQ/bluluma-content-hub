@@ -137,7 +137,7 @@ export function PortfolioForm({ client, initialData, onSave, onCancel }: Portfol
 
   /** Section-level detection — never a single global "has dynamic" flag. */
   const defsBySection = useMemo(() => {
-    const map = new Map<string, typeof definitions>();
+    const map = new Map<string, NonNullable<typeof definitions>>();
     for (const def of definitions ?? []) {
       const list = map.get(def.section) ?? [];
       list.push(def);
