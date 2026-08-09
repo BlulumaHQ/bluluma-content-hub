@@ -150,7 +150,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AuthGate />
+        <AppShell />
         <Toaster position="top-right" />
       </AuthProvider>
     </QueryClientProvider>
