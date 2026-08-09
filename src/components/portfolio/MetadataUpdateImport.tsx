@@ -410,14 +410,34 @@ export default function MetadataUpdateImport({ client }: { client: Client }) {
             .eq("client_id", client.id);
           if (error) throw new Error(error.message);
         }
-        if (Object.keys(row.detailPayload).length) {
+        const touchedDefs = [...row.dynamicDefs, ...row.clearedDefs];
+        if (Object.keys(row.detailPayload).length || touchedDefs.length) {
           const { data: existing, error: fetchErr } = await supabase
             .from("portfolio_details")
-            .select("id")
+            .select("id, additional_project_data")
             .eq("content_id", row.contentId)
             .maybeSingle();
           if (fetchErr) throw new Error(fetchErr.message);
-          const payload = { ...row.detailPayload, updated_at: new Date().toISOString() };
+
+          // Dynamic values are authoritative and applied last: JSONB merge is
+          // non-destructive, and [CLEAR] removes the key + NULLs mapped legacy columns.
+          const dynamicPart = touchedDefs.length
+            ? {
+                ...buildLegacyOverrides(touchedDefs, row.dynamicState),
+                additional_project_data: mergeAdditionalProjectData(
+                  (existing as { additional_project_data?: unknown } | null)
+                    ?.additional_project_data,
+                  touchedDefs,
+                  row.dynamicState,
+                ),
+              }
+            : {};
+
+          const payload = {
+            ...row.detailPayload,
+            ...dynamicPart,
+            updated_at: new Date().toISOString(),
+          };
           if (existing) {
             const { error } = await supabase
               .from("portfolio_details")
@@ -431,6 +451,7 @@ export default function MetadataUpdateImport({ client }: { client: Client }) {
             if (error) throw new Error(error.message);
           }
         }
+
         row.status = "success";
         row.message = `${row.changedFields.length} field(s) updated`;
         updated++;
