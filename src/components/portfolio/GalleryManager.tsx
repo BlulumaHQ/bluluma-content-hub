@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Star, Trash2, Upload, GripVertical, Loader2, Pencil, ImageOff, AlertTriangle } from "lucide-react";
 
@@ -70,6 +71,7 @@ export function GalleryManager({
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Asset | null>(null);
+  const queryClient = useQueryClient();
   const dragIndex = useRef<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const featuredInputRef = useRef<HTMLInputElement>(null);
@@ -93,6 +95,14 @@ export function GalleryManager({
   useEffect(() => {
     load();
   }, [load]);
+
+  /** Featured image lives on content_items — refresh every list/detail query
+   * that renders it so no surface keeps showing the previous image. */
+  const syncCaches = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+    queryClient.invalidateQueries({ queryKey: ["portfolio-item", contentId] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+  }, [queryClient, contentId]);
 
   // --- Reorder (drag) ---
   const onDragStart = (i: number) => {
@@ -135,6 +145,7 @@ export function GalleryManager({
       setAssets((prev) => prev.map((a) => ({ ...a, is_featured: a.id === asset.id })));
       setFeaturedUrl(asset.file_url);
       onFeaturedChange?.(asset.file_url);
+      syncCaches();
       toast.success("Featured image updated");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to set featured");
@@ -151,6 +162,7 @@ export function GalleryManager({
       setAssets((prev) => prev.map((a) => ({ ...a, is_featured: false })));
       setFeaturedUrl(null);
       onFeaturedChange?.(null);
+      syncCaches();
       toast.success("Featured image removed (gallery images kept)");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to remove featured");
@@ -236,6 +248,7 @@ export function GalleryManager({
         await supabase.from("content_items").update({ featured_image_url: null }).eq("id", contentId);
         setFeaturedUrl(null);
         onFeaturedChange?.(null);
+        syncCaches();
       }
       toast.success("Image removed");
     } catch (err) {

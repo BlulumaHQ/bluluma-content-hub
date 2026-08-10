@@ -58,7 +58,7 @@ function EditPortfolioPage() {
   });
 
   const handleSave = async (data: PortfolioFormData, dynamic: DynamicSaveInput) => {
-    await updatePortfolio(id, selectedClient!.id, data, dynamic);
+    await updatePortfolio(id, selectedClient!.id, data, dynamic, { preserveFeaturedImage: true });
     toast.success("Portfolio updated successfully");
     navigate({ to: "/portfolio" });
   };
