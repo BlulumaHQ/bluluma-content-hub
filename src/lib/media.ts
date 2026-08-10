@@ -55,21 +55,31 @@ export async function removeStoredFile(fileUrl: string) {
  * content_items.featured_image_url in sync. Exactly one asset stays featured.
  */
 export async function setFeaturedAsset(contentId: string, assetId: string, fileUrl: string) {
-  const { error: clearErr } = await supabase
-    .from("media_assets")
-    .update({ is_featured: false })
-    .eq("content_id", contentId);
-  if (clearErr) throw clearErr;
+  if (!fileUrl) throw new Error("Selected image has no URL");
+  // 1. Mark the new asset featured FIRST — the project is never left with zero
+  //    featured images, even if a later step fails.
   const { error: setErr } = await supabase
     .from("media_assets")
     .update({ is_featured: true })
-    .eq("id", assetId);
+    .eq("id", assetId)
+    .eq("content_id", contentId);
   if (setErr) throw setErr;
+
+  // 2. Keep the canonical URL on content_items in sync.
   const { error: ciErr } = await supabase
     .from("content_items")
-    .update({ featured_image_url: fileUrl })
+    .update({ featured_image_url: fileUrl, updated_at: new Date().toISOString() })
     .eq("id", contentId);
   if (ciErr) throw ciErr;
+
+  // 3. Only now demote every other asset — the file itself is kept in storage
+  //    and stays in the gallery.
+  const { error: clearErr } = await supabase
+    .from("media_assets")
+    .update({ is_featured: false })
+    .eq("content_id", contentId)
+    .neq("id", assetId);
+  if (clearErr) throw clearErr;
 }
 
 /** Persist a contiguous 1..N sort_order for the given asset ids in array order. */

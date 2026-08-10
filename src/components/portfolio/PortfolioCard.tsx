@@ -35,7 +35,7 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
 
   const handleSave = async (data: PortfolioFormData, dynamic: DynamicSaveInput) => {
     try {
-      await updatePortfolio(item.id, client.id, data, dynamic);
+      await updatePortfolio(item.id, client.id, data, dynamic, { preserveFeaturedImage: true });
       toast.success("Portfolio saved successfully");
       setEditOpen(false);
       onEdited();
@@ -176,6 +176,7 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
                     clientId={client.id}
                     featuredImageUrl={item.featured_image_url}
                     expectedGalleryCount={item.portfolio_details?.expected_gallery_count ?? null}
+                    onFeaturedChange={onEdited}
                   />
                 </div>
               </DialogContent>
