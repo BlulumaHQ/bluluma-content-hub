@@ -390,7 +390,10 @@ export function mapRow(cols: string[], mapping: ImportMapping): MappedRow {
       const currency = (def.settings ?? {})["currency"];
       if (typeof currency === "string" && currency) draft.extra["currency"] = currency;
       if (!draft.value) draft.value = value; // display fallback until a display column arrives
-    } else {
+    } else if (!draft.value) {
+      // Multiple accepted spreadsheet aliases can point at the same definition
+      // (e.g. "Interior Designer" and "Designer or Interior Designer").
+      // First non-empty column wins; never duplicated or overwritten.
       draft.value = value;
     }
     drafts.set(key, draft);

@@ -350,3 +350,96 @@ describe("Architect57 header fixes", () => {
     expect(res.totals.update).toBe(1);
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * Architect57 newest Credit structure — header readiness (no data written)
+ * ------------------------------------------------------------------ */
+
+const A57_CREDIT_DEFS = [
+  def({ section: "credits", field_key: "original_design_architect_or_engineer", label_en: "Original Design Architect or Engineer", display_order: 10, source_columns: ["Original Design Architect or Engineer"], settings: { legacy_column: "design_architect" } }),
+  def({ section: "credits", field_key: "architect_of_record", label_en: "Architect of Record / BP Architect", display_order: 20, source_columns: ["Architect of Record / BP Architect"], settings: { legacy_column: "architect_of_record" } }),
+  def({ section: "credits", field_key: "subsequent_architect_of_record", label_en: "Subsequent Architect of Record / BP Architect", label_zh: "後續建築許可建築師", display_order: 30, source_columns: ["Subsequent Architect of Record / BP Architect"] }),
+  def({ section: "credits", field_key: "interior_designer", label_en: "Designer or Interior Designer", display_order: 40, source_columns: ["Designer or Interior Designer", "Interior Designer"], settings: { legacy_column: "interior_designer" } }),
+  def({ section: "credits", field_key: "rendering_or_photo_credit", label_en: "Rendering or Photo Credit", label_zh: "效果圖／照片來源", display_order: 50, source_columns: ["Rendering or Photo Credit"] }),
+  def({ section: "credits", field_key: "code_consultant", label_en: "Building Code Consultant", display_order: 60, source_columns: ["Building Code Consultant", "Code Consultant"] }),
+  def({ section: "credits", field_key: "envelope_consultant", label_en: "Building Envelope Consultant", display_order: 70, source_columns: ["Building Envelope Consultant", "Envelope Consultant"] }),
+  def({ section: "credits", field_key: "awards_recognition", label_en: "Awards / Recognition", display_order: 80, source_columns: ["Awards / Recognition"], settings: { legacy_column: "awards" } }),
+];
+
+describe("Architect57 newest credit headers", () => {
+  const dest = (headers: string[], h: string) => {
+    const m = buildImportMapping(headers, A57_CREDIT_DEFS);
+    return m.columns.find((c) => c.header === h)!;
+  };
+
+  const NEW_HEADERS = [
+    "Original Design Architect or Engineer",
+    "Architect of Record / BP Architect",
+    "Subsequent Architect of Record / BP Architect",
+    "Designer or Interior Designer",
+    "Rendering or Photo Credit",
+    "Building Code Consultant",
+    "Building Envelope Consultant",
+    "Awards / Recognition",
+  ];
+
+  it("maps every newest-spreadsheet credit header", () => {
+    const m = buildImportMapping(NEW_HEADERS, A57_CREDIT_DEFS);
+    expect(m.unmappedColumns).toHaveLength(0);
+    expect(m.columns.map((c) => c.destination)).toEqual([
+      "credits.original_design_architect_or_engineer",
+      "credits.architect_of_record",
+      "credits.subsequent_architect_of_record",
+      "credits.interior_designer",
+      "credits.rendering_or_photo_credit",
+      "credits.code_consultant",
+      "credits.envelope_consultant",
+      "credits.awards_recognition",
+    ]);
+  });
+
+  it("still maps the previous spreadsheet aliases to the same field keys", () => {
+    const OLD = ["Interior Designer", "Code Consultant", "Envelope Consultant"];
+    const m = buildImportMapping(OLD, A57_CREDIT_DEFS);
+    expect(m.unmappedColumns).toHaveLength(0);
+    expect(m.columns.map((c) => c.destination)).toEqual([
+      "credits.interior_designer",
+      "credits.code_consultant",
+      "credits.envelope_consultant",
+    ]);
+    expect(dest(OLD, "Interior Designer").type).toBe("Dynamic Credit");
+  });
+
+  it("does not duplicate values when old and new aliases both appear", () => {
+    const headers = ["Designer or Interior Designer", "Interior Designer"];
+    const mapping = buildImportMapping(headers, A57_CREDIT_DEFS);
+    const row = mapRow(["Studio A", "Studio B"], mapping);
+    expect(Object.keys(row.dynamic["credits"])).toEqual(["interior_designer"]);
+    expect(row.dynamic["credits"]["interior_designer"].value).toBe("Studio A");
+    expect(row.creditCount).toBe(1);
+  });
+
+  it("stores the two new credits in JSONB only (no legacy columns)", () => {
+    const headers = ["Subsequent Architect of Record / BP Architect", "Rendering or Photo Credit"];
+    const mapping = buildImportMapping(headers, A57_CREDIT_DEFS);
+    const row = mapRow(["AOR Two Inc.", "Renderings by Studio X"], mapping);
+    const merged = mergeAdditionalProjectData(
+      { specifications: { floor_area: { value: 100, unit: "sqm" } }, credits: { architect_of_record: "Keep Me" } },
+      row.populatedDefinitions,
+      row.dynamic,
+    );
+    expect(merged["specifications"]).toEqual({ floor_area: { value: 100, unit: "sqm" } });
+    expect(merged["credits"]).toEqual({
+      architect_of_record: "Keep Me",
+      subsequent_architect_of_record: "AOR Two Inc.",
+      rendering_or_photo_credit: "Renderings by Studio X",
+    });
+    expect(buildLegacyOverrides(row.populatedDefinitions, row.dynamic)).toEqual({});
+  });
+
+  it("still errors on a genuinely unknown populated credit column", () => {
+    const mapping = buildImportMapping(["Mystery Consultant"], A57_CREDIT_DEFS);
+    const row = mapRow(["Someone"], mapping);
+    expect(row.unmapped).toEqual([{ header: "Mystery Consultant", value: "Someone" }]);
+  });
+});
