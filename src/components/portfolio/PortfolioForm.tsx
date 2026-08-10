@@ -358,13 +358,21 @@ export function PortfolioForm({ client, initialData, onSave, onCancel, hideFeatu
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="sort_order">Sort Order</Label>
+            <Label htmlFor="sort_order">Display Order</Label>
             <Input
               id="sort_order"
               type="number"
+              min={0}
+              step={1}
               value={form.sort_order}
-              onChange={(e) => set("sort_order", parseInt(e.target.value || "0", 10))}
+              onChange={(e) => {
+                const n = parseInt(e.target.value, 10);
+                set("sort_order", Number.isFinite(n) ? n : 0);
+              }}
             />
+            <p className="text-xs text-muted-foreground">
+              Lower number appears first. Same field used by drag-and-drop ordering.
+            </p>
           </div>
           <div className="flex items-center gap-3 pt-7">
             <Switch

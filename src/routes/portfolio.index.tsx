@@ -205,14 +205,22 @@ function PortfolioPage() {
     if (!selectedClient || saving) return;
     setSaving(true);
     try {
-      const updates = orderedItems.map((item, idx) =>
-        supabase
-          .from("content_items")
-          .update({ sort_order: idx + 1, updated_at: new Date().toISOString() })
-          .eq("id", item.id)
-          .eq("client_id", selectedClient.id),
+      // Normalize to a clean, contiguous 1..N sequence, but only write rows
+      // whose sort_order actually changes.
+      const changed = orderedItems
+        .map((item, idx) => ({ item, next: idx + 1 }))
+        .filter(({ item, next }) => (item.sort_order ?? null) !== next);
+
+      const results = await Promise.all(
+        changed.map(({ item, next }) =>
+          supabase
+            .from("content_items")
+            .update({ sort_order: next, updated_at: new Date().toISOString() })
+            .eq("id", item.id)
+            .eq("client_id", selectedClient.id)
+            .eq("content_type", "portfolio"),
+        ),
       );
-      const results = await Promise.all(updates);
       const failed = results.filter((r) => r.error);
       if (failed.length > 0) {
         console.error("Save order failures:", failed.map((f) => f.error));
@@ -223,7 +231,11 @@ function PortfolioPage() {
       savedOrderRef.current = nextSaved;
       setOrderedItems(nextSaved);
       setDirty(false);
-      toast.success("Portfolio order saved.");
+      toast.success(
+        changed.length === 0
+          ? "Order already up to date."
+          : `Portfolio order saved (${changed.length} project${changed.length > 1 ? "s" : ""} updated).`,
+      );
       refresh();
     } catch (err) {
       console.error(err);
