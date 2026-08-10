@@ -292,8 +292,15 @@ export async function updatePortfolio(
   clientId: string,
   data: PortfolioFormData,
   dynamic?: DynamicSaveInput,
+  options?: { preserveFeaturedImage?: boolean },
 ) {
   const contentPayload = buildContentPayload(data);
+  // When GalleryManager owns the Featured Image, the form holds a snapshot of
+  // the value taken when it mounted. Writing it back would silently revert a
+  // featured image changed in the gallery, so drop it from the payload.
+  if (options?.preserveFeaturedImage) {
+    delete (contentPayload as { featured_image_url?: string | null }).featured_image_url;
+  }
   const { error: contentError } = await supabase
     .from("content_items")
     .update(contentPayload)
