@@ -18,7 +18,14 @@ import {
 import type { Client } from "@/types";
 
 export const Route = createFileRoute("/clients/$id")({
-  head: () => ({ meta: [{ title: "Edit Client — Bluluma CMS Admin" }] }),
+  head: () => ({ meta: [
+    { title: "Edit Client — Bluluma CMS Admin" },
+    { name: "description", content: "View and edit a client in the Bluluma CMS." },
+    { property: "og:title", content: "Edit Client — Bluluma CMS Admin" },
+    { property: "og:description", content: "View and edit a client in the Bluluma CMS." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: EditClientPage,
 });
 
@@ -73,13 +80,7 @@ function EditClientPage() {
       ...f,
       supported_locales: f.supported_locales.includes(code)
         ? f.supported_locales.filter((l) => l !== code)
-        : [...f.supported_locales, code,
-      { name: "description", content: "View and edit a client in the Bluluma CMS." },
-      { property: "og:title", content: "Edit Client — Bluluma CMS Admin" },
-      { property: "og:description", content: "View and edit a client in the Bluluma CMS." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
+        : [...f.supported_locales, code],
     }));
 
   const handleSubmit = async (e: React.FormEvent) => {
