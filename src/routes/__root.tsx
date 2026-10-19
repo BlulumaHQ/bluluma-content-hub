@@ -7,6 +7,7 @@ import {
   useLocation,
   HeadContent,
   Scripts,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 
@@ -40,7 +41,7 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
   console.error(error);
   const router = useRouter();
 
@@ -80,6 +81,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "robots", content: "noindex, nofollow, noarchive" },
       { title: "Bluluma CMS Admin" },
       { name: "description", content: "Internal multi-client CMS for Bluluma" },
       { name: "author", content: "Bluluma" },
@@ -89,8 +91,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "Bluluma CMS Admin" },
       { name: "twitter:description", content: "Internal multi-client CMS for Bluluma" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/3a687cb2-f92d-401b-ae4a-307375706321/id-preview-ef75d4b7--1511926f-f1ae-460f-9276-6a93c0c5b7fd.lovable.app-1779282845367.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/3a687cb2-f92d-401b-ae4a-307375706321/id-preview-ef75d4b7--1511926f-f1ae-460f-9276-6a93c0c5b7fd.lovable.app-1779282845367.png" },
     ],
     links: [
       {

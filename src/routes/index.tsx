@@ -17,6 +17,10 @@ export const Route = createFileRoute("/")({
     meta: [
       { title: "Dashboard — Bluluma CMS Admin" },
       { name: "description", content: "CMS Admin Dashboard" },
+      { property: "og:title", content: "Dashboard — Bluluma CMS Admin" },
+      { property: "og:description", content: "CMS Admin Dashboard" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: DashboardPage,

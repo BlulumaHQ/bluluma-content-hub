@@ -9,7 +9,14 @@ import { Button } from "@/components/ui/button";
 import type { Client } from "@/types";
 
 export const Route = createFileRoute("/clients/")({
-  head: () => ({ meta: [{ title: "Clients — Bluluma CMS Admin" }] }),
+  head: () => ({ meta: [
+    { title: "Clients — Bluluma CMS Admin" },
+    { name: "description", content: "Manage clients in the Bluluma CMS." },
+    { property: "og:title", content: "Clients — Bluluma CMS Admin" },
+    { property: "og:description", content: "Manage clients in the Bluluma CMS." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: ClientsListPage,
 });
 

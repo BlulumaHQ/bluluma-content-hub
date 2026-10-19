@@ -9,7 +9,13 @@ import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/blog/$id")({
   head: () => ({
-    meta: [{ title: "Edit Blog Post — Bluluma CMS Admin" }],
+    meta: [{ title: "Edit Blog Post — Bluluma CMS Admin" },
+      { name: "description", content: "View and edit a blog post in the Bluluma CMS." },
+      { property: "og:title", content: "Edit Blog Post — Bluluma CMS Admin" },
+      { property: "og:description", content: "View and edit a blog post in the Bluluma CMS." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
   }),
   component: EditBlogPage,
 });

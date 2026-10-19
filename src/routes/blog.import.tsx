@@ -3,7 +3,14 @@ import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/blog/import")({
-  head: () => ({ meta: [{ title: "Bulk Import Blog — Bluluma CMS" }] }),
+  head: () => ({ meta: [
+    { title: "Bulk Import Blog — Bluluma CMS" },
+    { name: "description", content: "Import blog posts in bulk into the Bluluma CMS." },
+    { property: "og:title", content: "Bulk Import Blog — Bluluma CMS" },
+    { property: "og:description", content: "Import blog posts in bulk into the Bluluma CMS." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: BulkImportPage,
 });
 

@@ -6,6 +6,10 @@ export const Route = createFileRoute("/settings")({
     meta: [
       { title: "Settings — Bluluma CMS Admin" },
       { name: "description", content: "Client settings" },
+      { property: "og:title", content: "Settings — Bluluma CMS Admin" },
+      { property: "og:description", content: "Client settings" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: SettingsPage,
