@@ -9,53 +9,33 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as PortfolioRouteImport } from './routes/portfolio'
-import { Route as MediaRouteImport } from './routes/media'
-import { Route as ClientsRouteImport } from './routes/clients'
-import { Route as BlogRouteImport } from './routes/blog'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PortfolioIndexRouteImport } from './routes/portfolio.index'
-import { Route as ClientsIndexRouteImport } from './routes/clients.index'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BlogRouteImport } from './routes/blog'
+import { Route as ClientsRouteImport } from './routes/clients'
+import { Route as MediaRouteImport } from './routes/media'
+import { Route as PortfolioRouteImport } from './routes/portfolio'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
-import { Route as PortfolioTagsRouteImport } from './routes/portfolio.tags'
-import { Route as PortfolioNewRouteImport } from './routes/portfolio.new'
-import { Route as PortfolioImportRouteImport } from './routes/portfolio.import'
-import { Route as PortfolioCategoriesRouteImport } from './routes/portfolio.categories'
-import { Route as PortfolioIdRouteImport } from './routes/portfolio.$id'
-import { Route as ClientsNewRouteImport } from './routes/clients.new'
-import { Route as ClientsIdRouteImport } from './routes/clients.$id'
-import { Route as BlogTagsRouteImport } from './routes/blog.tags'
-import { Route as BlogNewRouteImport } from './routes/blog.new'
-import { Route as BlogImportRouteImport } from './routes/blog.import'
-import { Route as BlogCategoriesRouteImport } from './routes/blog.categories'
 import { Route as BlogIdRouteImport } from './routes/blog.$id'
+import { Route as BlogCategoriesRouteImport } from './routes/blog.categories'
+import { Route as BlogImportRouteImport } from './routes/blog.import'
+import { Route as BlogNewRouteImport } from './routes/blog.new'
+import { Route as BlogTagsRouteImport } from './routes/blog.tags'
+import { Route as ClientsIndexRouteImport } from './routes/clients.index'
+import { Route as ClientsIdRouteImport } from './routes/clients.$id'
+import { Route as ClientsNewRouteImport } from './routes/clients.new'
+import { Route as PortfolioIndexRouteImport } from './routes/portfolio.index'
+import { Route as PortfolioIdRouteImport } from './routes/portfolio.$id'
+import { Route as PortfolioCategoriesRouteImport } from './routes/portfolio.categories'
+import { Route as PortfolioImportRouteImport } from './routes/portfolio.import'
+import { Route as PortfolioNewRouteImport } from './routes/portfolio.new'
+import { Route as PortfolioTagsRouteImport } from './routes/portfolio.tags'
 import { Route as BlogPreviewIdRouteImport } from './routes/blog.preview.$id'
 
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortfolioRoute = PortfolioRouteImport.update({
-  id: '/portfolio',
-  path: '/portfolio',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MediaRoute = MediaRouteImport.update({
-  id: '/media',
-  path: '/media',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ClientsRoute = ClientsRouteImport.update({
-  id: '/clients',
-  path: '/clients',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BlogRoute = BlogRouteImport.update({
-  id: '/blog',
-  path: '/blog',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -63,74 +43,39 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const BlogRoute = BlogRouteImport.update({
+  id: '/blog',
+  path: '/blog',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PortfolioIndexRoute = PortfolioIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => PortfolioRoute,
+const ClientsRoute = ClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const ClientsIndexRoute = ClientsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ClientsRoute,
+const MediaRoute = MediaRouteImport.update({
+  id: '/media',
+  path: '/media',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortfolioRoute = PortfolioRouteImport.update({
+  id: '/portfolio',
+  path: '/portfolio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const BlogIndexRoute = BlogIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => BlogRoute,
 } as any)
-const PortfolioTagsRoute = PortfolioTagsRouteImport.update({
-  id: '/tags',
-  path: '/tags',
-  getParentRoute: () => PortfolioRoute,
-} as any)
-const PortfolioNewRoute = PortfolioNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => PortfolioRoute,
-} as any)
-const PortfolioImportRoute = PortfolioImportRouteImport.update({
-  id: '/import',
-  path: '/import',
-  getParentRoute: () => PortfolioRoute,
-} as any)
-const PortfolioCategoriesRoute = PortfolioCategoriesRouteImport.update({
-  id: '/categories',
-  path: '/categories',
-  getParentRoute: () => PortfolioRoute,
-} as any)
-const PortfolioIdRoute = PortfolioIdRouteImport.update({
+const BlogIdRoute = BlogIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => PortfolioRoute,
-} as any)
-const ClientsNewRoute = ClientsNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => ClientsRoute,
-} as any)
-const ClientsIdRoute = ClientsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ClientsRoute,
-} as any)
-const BlogTagsRoute = BlogTagsRouteImport.update({
-  id: '/tags',
-  path: '/tags',
-  getParentRoute: () => BlogRoute,
-} as any)
-const BlogNewRoute = BlogNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => BlogRoute,
-} as any)
-const BlogImportRoute = BlogImportRouteImport.update({
-  id: '/import',
-  path: '/import',
   getParentRoute: () => BlogRoute,
 } as any)
 const BlogCategoriesRoute = BlogCategoriesRouteImport.update({
@@ -138,10 +83,65 @@ const BlogCategoriesRoute = BlogCategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => BlogRoute,
 } as any)
-const BlogIdRoute = BlogIdRouteImport.update({
+const BlogImportRoute = BlogImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => BlogRoute,
+} as any)
+const BlogNewRoute = BlogNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => BlogRoute,
+} as any)
+const BlogTagsRoute = BlogTagsRouteImport.update({
+  id: '/tags',
+  path: '/tags',
+  getParentRoute: () => BlogRoute,
+} as any)
+const ClientsIndexRoute = ClientsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ClientsRoute,
+} as any)
+const ClientsIdRoute = ClientsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => BlogRoute,
+  getParentRoute: () => ClientsRoute,
+} as any)
+const ClientsNewRoute = ClientsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => ClientsRoute,
+} as any)
+const PortfolioIndexRoute = PortfolioIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PortfolioRoute,
+} as any)
+const PortfolioIdRoute = PortfolioIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => PortfolioRoute,
+} as any)
+const PortfolioCategoriesRoute = PortfolioCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => PortfolioRoute,
+} as any)
+const PortfolioImportRoute = PortfolioImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => PortfolioRoute,
+} as any)
+const PortfolioNewRoute = PortfolioNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => PortfolioRoute,
+} as any)
+const PortfolioTagsRoute = PortfolioTagsRouteImport.update({
+  id: '/tags',
+  path: '/tags',
+  getParentRoute: () => PortfolioRoute,
 } as any)
 const BlogPreviewIdRoute = BlogPreviewIdRouteImport.update({
   id: '/preview/$id',
@@ -309,39 +309,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/portfolio': {
-      id: '/portfolio'
-      path: '/portfolio'
-      fullPath: '/portfolio'
-      preLoaderRoute: typeof PortfolioRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/media': {
-      id: '/media'
-      path: '/media'
-      fullPath: '/media'
-      preLoaderRoute: typeof MediaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/clients': {
-      id: '/clients'
-      path: '/clients'
-      fullPath: '/clients'
-      preLoaderRoute: typeof ClientsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/blog': {
-      id: '/blog'
-      path: '/blog'
-      fullPath: '/blog'
-      preLoaderRoute: typeof BlogRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -351,26 +323,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/blog': {
+      id: '/blog'
+      path: '/blog'
+      fullPath: '/blog'
+      preLoaderRoute: typeof BlogRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/portfolio/': {
-      id: '/portfolio/'
-      path: '/'
-      fullPath: '/portfolio/'
-      preLoaderRoute: typeof PortfolioIndexRouteImport
-      parentRoute: typeof PortfolioRoute
+    '/clients': {
+      id: '/clients'
+      path: '/clients'
+      fullPath: '/clients'
+      preLoaderRoute: typeof ClientsRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/clients/': {
-      id: '/clients/'
-      path: '/'
-      fullPath: '/clients/'
-      preLoaderRoute: typeof ClientsIndexRouteImport
-      parentRoute: typeof ClientsRoute
+    '/media': {
+      id: '/media'
+      path: '/media'
+      fullPath: '/media'
+      preLoaderRoute: typeof MediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portfolio': {
+      id: '/portfolio'
+      path: '/portfolio'
+      fullPath: '/portfolio'
+      preLoaderRoute: typeof PortfolioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/blog/': {
       id: '/blog/'
@@ -379,74 +365,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogIndexRouteImport
       parentRoute: typeof BlogRoute
     }
-    '/portfolio/tags': {
-      id: '/portfolio/tags'
-      path: '/tags'
-      fullPath: '/portfolio/tags'
-      preLoaderRoute: typeof PortfolioTagsRouteImport
-      parentRoute: typeof PortfolioRoute
-    }
-    '/portfolio/new': {
-      id: '/portfolio/new'
-      path: '/new'
-      fullPath: '/portfolio/new'
-      preLoaderRoute: typeof PortfolioNewRouteImport
-      parentRoute: typeof PortfolioRoute
-    }
-    '/portfolio/import': {
-      id: '/portfolio/import'
-      path: '/import'
-      fullPath: '/portfolio/import'
-      preLoaderRoute: typeof PortfolioImportRouteImport
-      parentRoute: typeof PortfolioRoute
-    }
-    '/portfolio/categories': {
-      id: '/portfolio/categories'
-      path: '/categories'
-      fullPath: '/portfolio/categories'
-      preLoaderRoute: typeof PortfolioCategoriesRouteImport
-      parentRoute: typeof PortfolioRoute
-    }
-    '/portfolio/$id': {
-      id: '/portfolio/$id'
+    '/blog/$id': {
+      id: '/blog/$id'
       path: '/$id'
-      fullPath: '/portfolio/$id'
-      preLoaderRoute: typeof PortfolioIdRouteImport
-      parentRoute: typeof PortfolioRoute
-    }
-    '/clients/new': {
-      id: '/clients/new'
-      path: '/new'
-      fullPath: '/clients/new'
-      preLoaderRoute: typeof ClientsNewRouteImport
-      parentRoute: typeof ClientsRoute
-    }
-    '/clients/$id': {
-      id: '/clients/$id'
-      path: '/$id'
-      fullPath: '/clients/$id'
-      preLoaderRoute: typeof ClientsIdRouteImport
-      parentRoute: typeof ClientsRoute
-    }
-    '/blog/tags': {
-      id: '/blog/tags'
-      path: '/tags'
-      fullPath: '/blog/tags'
-      preLoaderRoute: typeof BlogTagsRouteImport
-      parentRoute: typeof BlogRoute
-    }
-    '/blog/new': {
-      id: '/blog/new'
-      path: '/new'
-      fullPath: '/blog/new'
-      preLoaderRoute: typeof BlogNewRouteImport
-      parentRoute: typeof BlogRoute
-    }
-    '/blog/import': {
-      id: '/blog/import'
-      path: '/import'
-      fullPath: '/blog/import'
-      preLoaderRoute: typeof BlogImportRouteImport
+      fullPath: '/blog/$id'
+      preLoaderRoute: typeof BlogIdRouteImport
       parentRoute: typeof BlogRoute
     }
     '/blog/categories': {
@@ -456,12 +379,89 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogCategoriesRouteImport
       parentRoute: typeof BlogRoute
     }
-    '/blog/$id': {
-      id: '/blog/$id'
-      path: '/$id'
-      fullPath: '/blog/$id'
-      preLoaderRoute: typeof BlogIdRouteImport
+    '/blog/import': {
+      id: '/blog/import'
+      path: '/import'
+      fullPath: '/blog/import'
+      preLoaderRoute: typeof BlogImportRouteImport
       parentRoute: typeof BlogRoute
+    }
+    '/blog/new': {
+      id: '/blog/new'
+      path: '/new'
+      fullPath: '/blog/new'
+      preLoaderRoute: typeof BlogNewRouteImport
+      parentRoute: typeof BlogRoute
+    }
+    '/blog/tags': {
+      id: '/blog/tags'
+      path: '/tags'
+      fullPath: '/blog/tags'
+      preLoaderRoute: typeof BlogTagsRouteImport
+      parentRoute: typeof BlogRoute
+    }
+    '/clients/': {
+      id: '/clients/'
+      path: '/'
+      fullPath: '/clients/'
+      preLoaderRoute: typeof ClientsIndexRouteImport
+      parentRoute: typeof ClientsRoute
+    }
+    '/clients/$id': {
+      id: '/clients/$id'
+      path: '/$id'
+      fullPath: '/clients/$id'
+      preLoaderRoute: typeof ClientsIdRouteImport
+      parentRoute: typeof ClientsRoute
+    }
+    '/clients/new': {
+      id: '/clients/new'
+      path: '/new'
+      fullPath: '/clients/new'
+      preLoaderRoute: typeof ClientsNewRouteImport
+      parentRoute: typeof ClientsRoute
+    }
+    '/portfolio/': {
+      id: '/portfolio/'
+      path: '/'
+      fullPath: '/portfolio/'
+      preLoaderRoute: typeof PortfolioIndexRouteImport
+      parentRoute: typeof PortfolioRoute
+    }
+    '/portfolio/$id': {
+      id: '/portfolio/$id'
+      path: '/$id'
+      fullPath: '/portfolio/$id'
+      preLoaderRoute: typeof PortfolioIdRouteImport
+      parentRoute: typeof PortfolioRoute
+    }
+    '/portfolio/categories': {
+      id: '/portfolio/categories'
+      path: '/categories'
+      fullPath: '/portfolio/categories'
+      preLoaderRoute: typeof PortfolioCategoriesRouteImport
+      parentRoute: typeof PortfolioRoute
+    }
+    '/portfolio/import': {
+      id: '/portfolio/import'
+      path: '/import'
+      fullPath: '/portfolio/import'
+      preLoaderRoute: typeof PortfolioImportRouteImport
+      parentRoute: typeof PortfolioRoute
+    }
+    '/portfolio/new': {
+      id: '/portfolio/new'
+      path: '/new'
+      fullPath: '/portfolio/new'
+      preLoaderRoute: typeof PortfolioNewRouteImport
+      parentRoute: typeof PortfolioRoute
+    }
+    '/portfolio/tags': {
+      id: '/portfolio/tags'
+      path: '/tags'
+      fullPath: '/portfolio/tags'
+      preLoaderRoute: typeof PortfolioTagsRouteImport
+      parentRoute: typeof PortfolioRoute
     }
     '/blog/preview/$id': {
       id: '/blog/preview/$id'
