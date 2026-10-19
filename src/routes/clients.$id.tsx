@@ -73,7 +73,13 @@ function EditClientPage() {
       ...f,
       supported_locales: f.supported_locales.includes(code)
         ? f.supported_locales.filter((l) => l !== code)
-        : [...f.supported_locales, code],
+        : [...f.supported_locales, code,
+      { name: "description", content: "View and edit a client in the Bluluma CMS." },
+      { property: "og:title", content: "Edit Client — Bluluma CMS Admin" },
+      { property: "og:description", content: "View and edit a client in the Bluluma CMS." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
     }));
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -58,6 +58,10 @@ export const Route = createFileRoute("/portfolio/import")({
     meta: [
       { title: "Bulk Import Portfolio — Bluluma CMS Admin" },
       { name: "description", content: "Bulk import portfolio projects + galleries via CSV" },
+      { property: "og:title", content: "Bulk Import Portfolio — Bluluma CMS Admin" },
+      { property: "og:description", content: "Bulk import portfolio projects + galleries via CSV" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: BulkImportPage,

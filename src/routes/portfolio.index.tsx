@@ -41,6 +41,10 @@ export const Route = createFileRoute("/portfolio/")({
     meta: [
       { title: "Portfolio — Bluluma CMS Admin" },
       { name: "description", content: "Manage portfolio items" },
+      { property: "og:title", content: "Portfolio — Bluluma CMS Admin" },
+      { property: "og:description", content: "Manage portfolio items" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: PortfolioPage,

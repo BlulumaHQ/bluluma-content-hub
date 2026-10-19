@@ -10,6 +10,10 @@ export const Route = createFileRoute("/media")({
     meta: [
       { title: "Media Library — Bluluma CMS Admin" },
       { name: "description", content: "Media library" },
+      { property: "og:title", content: "Media Library — Bluluma CMS Admin" },
+      { property: "og:description", content: "Media library" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: MediaPage,

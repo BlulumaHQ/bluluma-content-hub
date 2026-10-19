@@ -8,7 +8,13 @@ import { createBlogPost } from "@/lib/blog";
 
 export const Route = createFileRoute("/blog/new")({
   head: () => ({
-    meta: [{ title: "New Blog Post — Bluluma CMS Admin" }],
+    meta: [{ title: "New Blog Post — Bluluma CMS Admin" },
+      { name: "description", content: "Create a new blog post in the Bluluma CMS." },
+      { property: "og:title", content: "New Blog Post — Bluluma CMS Admin" },
+      { property: "og:description", content: "Create a new blog post in the Bluluma CMS." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
   }),
   component: NewBlogPage,
 });
