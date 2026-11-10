@@ -2,6 +2,12 @@ import { createStart, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
+import { applySearchIndexingPolicy } from "./lib/search-indexing";
+
+const searchIndexingMiddleware = createMiddleware().server(async ({ request, next }) => {
+  const result = await next();
+  return { ...result, response: applySearchIndexingPolicy(request, result.response) };
+});
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -20,5 +26,5 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 
 export const startInstance = createStart(() => ({
   functionMiddleware: [attachSupabaseAuth],
-  requestMiddleware: [errorMiddleware],
+  requestMiddleware: [searchIndexingMiddleware, errorMiddleware],
 }));

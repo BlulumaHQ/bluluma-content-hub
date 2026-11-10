@@ -1,3 +1,3 @@
 # Project rules
 
-- Keep sitewide indexing directives in the root route's SSR `head()` and do not override them in child routes, so both server-rendered pages and the existing static prerender share one consistent policy.
+- Apply indexing restrictions at request time through the shared hostname policy in server and static-host middleware; never bake platform noindex into shared HTML, so custom domains remain index-eligible.
