@@ -10,13 +10,13 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
-export function TopBar() {
+export function TopBar({ compactMobile = false }: { compactMobile?: boolean }) {
   const { clients, selectedClient, setSelectedClient, isLoading } = useClientContext();
 
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-card px-6">
-      <div className="flex items-center gap-3">
+    <header className={`flex h-16 shrink-0 items-center justify-between border-b bg-card px-6 ${compactMobile ? "max-md:px-4" : ""}`}>
+      <div className={`flex items-center gap-3 ${compactMobile ? "max-md:hidden" : ""}`}>
         {selectedClient ? (
           <>
             <span className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -39,8 +39,8 @@ export function TopBar() {
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="w-64">
+      <div className={`flex items-center gap-2 ${compactMobile ? "max-md:w-full" : ""}`}>
+        <div className={`w-64 ${compactMobile ? "max-md:min-w-0 max-md:flex-1" : ""}`}>
           <Select
             value={selectedClient?.id ?? ""}
             onValueChange={(value) => {

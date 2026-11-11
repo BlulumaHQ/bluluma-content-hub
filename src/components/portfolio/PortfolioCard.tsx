@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ExternalLink, Pencil, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 
 import type { PortfolioItem, Client } from "@/types";
@@ -18,6 +18,10 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 import { GalleryManager } from "@/components/portfolio/GalleryManager";
+import { PortfolioScreenshots } from "@/components/portfolio/PortfolioScreenshots";
+import { PORTFOLIO_WEBSITES } from "@/lib/portfolio-editor";
+import { publishPortfolioItem } from "@/lib/portfolio-screenshots";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface PortfolioCardProps {
   item: PortfolioItem;
@@ -32,13 +36,20 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
   const details = item.portfolio_details;
   const services = details?.services ?? [];
   const [editOpen, setEditOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const publish = useMutation({ mutationFn: () => publishPortfolioItem(item.id, client.id), onSuccess: () => {
+    toast.success("Portfolio published");
+    onEdited();
+    void queryClient.invalidateQueries({ queryKey: ["portfolio-item", item.id] });
+  }, onError: (err) => toast.error(err instanceof Error ? err.message : "Could not publish") });
 
   const handleSave = async (data: PortfolioFormData, dynamic: DynamicSaveInput) => {
     try {
-      await updatePortfolio(item.id, client.id, data, dynamic, { preserveFeaturedImage: true });
+      await updatePortfolio(item.id, client.id, data, dynamic, { preserveFeaturedImage: true, preserveClientName: true });
       toast.success("Portfolio saved successfully");
       setEditOpen(false);
       onEdited();
+      void queryClient.invalidateQueries({ queryKey: ["portfolio-item", item.id] });
     } catch (err) {
       console.error("[PortfolioCard] save failed", err);
       toast.error(err instanceof Error ? err.message : "Failed to save");
@@ -48,7 +59,7 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
 
 
   return (
-    <div className={`group relative flex flex-col overflow-hidden rounded-lg border bg-card transition-shadow hover:shadow-md ${selected ? "ring-2 ring-primary" : ""}`}>
+    <div className={`group relative flex flex-col gap-3 overflow-hidden border-b bg-background p-3 sm:flex-row sm:items-center ${selected ? "ring-2 ring-primary" : ""}`}>
       {onToggleSelect && (
         <div className="absolute right-2 top-2 z-10 rounded-md bg-background/90 p-1 shadow">
           <Checkbox
@@ -58,7 +69,7 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
           />
         </div>
       )}
-      <div className="aspect-video overflow-hidden bg-muted">
+      <div className="ml-10 h-20 w-28 shrink-0 overflow-hidden rounded-md bg-muted">
         {item.featured_image_url ? (
           <img
             src={item.featured_image_url}
@@ -72,15 +83,15 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
         )}
       </div>
 
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex min-w-0 flex-1 flex-col">
         <div className="mb-2 flex items-center justify-between">
           <span
             className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
               item.status === "published"
-                ? "bg-green-100 text-green-700"
+                ? "bg-primary/10 text-primary"
                 : item.status === "draft"
-                ? "bg-amber-100 text-amber-700"
-                : "bg-gray-100 text-gray-700"
+                ? "bg-secondary text-secondary-foreground"
+                : "bg-muted text-muted-foreground"
             }`}
           >
             {item.status}
@@ -95,6 +106,8 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
         <h3 className="text-base font-semibold text-card-foreground line-clamp-1">
           {item.title}
         </h3>
+        <p className="mt-1 text-xs text-muted-foreground">{item.categories?.map((category) => category.name).join(" · ") || "Uncategorized"}</p>
+        <div className="mt-2 flex flex-wrap gap-1">{(item.show_on ?? []).map((value) => <span key={value} className="rounded bg-accent px-2 py-0.5 text-xs text-accent-foreground">{PORTFOLIO_WEBSITES.find((website) => website.value === value)?.label ?? value}</span>)}</div>
 
         {item.excerpt && (
           <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
@@ -140,6 +153,7 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
           )}
 
           <div className="ml-auto flex items-center gap-1">
+            {item.status === "draft" && <Button size="sm" disabled={publish.isPending} onClick={() => publish.mutate()}><Check />{publish.isPending ? "Publishing…" : "Publish"}</Button>}
             <Dialog open={editOpen} onOpenChange={setEditOpen}>
               <DialogTrigger asChild>
                 <Button
@@ -179,6 +193,7 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
                     onFeaturedChange={onEdited}
                   />
                 </div>
+                <PortfolioScreenshots contentId={item.id} clientId={client.id} />
               </DialogContent>
             </Dialog>
 

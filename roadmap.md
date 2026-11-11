@@ -7,7 +7,8 @@
 - [ ] Verify deployed platform headers and custom-domain eligibility after redeployment. Blocker: unpublished changes; no custom domains or Workers/Pages/Netlify deployment URLs connected.
 
 # Portfolio editor update
-- [ ] Add website selections and services checklist; preserve the client-name database column.
-- [ ] Add version list and screenshot-only gallery editing.
-- [ ] Add Inbox/Published rows with categories, website badges, and publishing.
-- [ ] Test portfolio rules and verify the editor and list in the preview.
+- [x] Add website selections and services checklist; preserve the client-name database column.
+- [x] Add version list and screenshot-only gallery editing.
+- [x] Add Inbox/Published rows with categories, website badges, and publishing.
+- [x] Test portfolio rules and verify saving, captions, ordering, screenshot deletion, and publishing with disposable records; all test records removed.
+- [ ] Enable version deletion for the current database role. Blocker: existing database permissions deny DELETE on portfolio_versions; no permissions changed in this request.

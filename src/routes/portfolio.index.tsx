@@ -26,6 +26,8 @@ import { SortablePortfolioCard } from "@/components/portfolio/SortablePortfolioC
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { filterPortfolioTab } from "@/lib/portfolio-editor";
 import {
   Dialog,
   DialogContent,
@@ -86,6 +88,7 @@ function PortfolioPage() {
   const savedOrderRef = useRef<PortfolioItem[]>([]);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<"draft" | "published">("draft");
 
   const { data: items, isLoading, error } = useQuery({
     queryKey: ["portfolio", selectedClient?.id],
@@ -117,10 +120,14 @@ function PortfolioPage() {
       ((detailsData as PortfolioDetail[]) ?? []).forEach((d) => {
         detailsMap.set(d.content_id, d);
       });
+      const { data: categoryData, error: categoryError } = await supabase.from("content_categories").select("content_id,categories(id,name)").in("content_id", contentIds);
+      if (categoryError) throw categoryError;
+      const categories = (categoryData ?? []) as unknown as { content_id: string; categories: { id: string; name: string } | null }[];
 
       return contentItems.map((item) => ({
         ...item,
         portfolio_details: detailsMap.get(item.id),
+        categories: categories.filter((row) => row.content_id === item.id).flatMap((row) => row.categories ? [row.categories] : []),
       })) as PortfolioItem[];
     },
     enabled: !!selectedClient,
@@ -169,15 +176,19 @@ function PortfolioPage() {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
     setOrderedItems((prev) => {
-      const oldIndex = prev.findIndex((i) => i.id === active.id);
-      const newIndex = prev.findIndex((i) => i.id === over.id);
+      const visible = filterPortfolioTab(prev, tab);
+      const oldIndex = visible.findIndex((i) => i.id === active.id);
+      const newIndex = visible.findIndex((i) => i.id === over.id);
       if (oldIndex < 0 || newIndex < 0) return prev;
-      return arrayMove(prev, oldIndex, newIndex);
+      const reordered = arrayMove(visible, oldIndex, newIndex);
+      let index = 0;
+      return prev.map((item) => item.status === tab ? (reordered[index++] ?? item) : item);
     });
     setDirty(true);
   };
 
-  const allIds = useMemo(() => orderedItems.map((i) => i.id), [orderedItems]);
+  const visibleItems = useMemo(() => filterPortfolioTab(orderedItems, tab), [orderedItems, tab]);
+  const allIds = useMemo(() => visibleItems.map((i) => i.id), [visibleItems]);
   const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id));
   const someSelected = selected.size > 0;
 
@@ -337,14 +348,14 @@ function PortfolioPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Portfolio</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Manage portfolio items for {selectedClient.client_name}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link to="/portfolio/import">
             <Button variant="outline">
               <Upload className="mr-2 h-4 w-4" />
@@ -360,6 +371,13 @@ function PortfolioPage() {
         </div>
       </div>
 
+      <Tabs value={tab} onValueChange={(value) => {
+        if (dirty && !window.confirm("Discard unsaved order changes?")) return;
+        if (dirty) handleResetOrder();
+        setSelected(new Set());
+        setTab(value === "published" ? "published" : "draft");
+      }} className="mt-6"><TabsList><TabsTrigger value="draft">Inbox ({filterPortfolioTab(items ?? [], "draft").length})</TabsTrigger><TabsTrigger value="published">Published ({filterPortfolioTab(items ?? [], "published").length})</TabsTrigger></TabsList></Tabs>
+
       {orderedItems.length > 0 && (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
           <label className="flex items-center gap-2 text-sm">
@@ -370,8 +388,8 @@ function PortfolioPage() {
             />
             <span>
               {selected.size > 0
-                ? `${selected.size} of ${orderedItems.length} selected`
-                : `Select all (${orderedItems.length})`}
+                ? `${selected.size} of ${visibleItems.length} selected`
+                : `Select all (${visibleItems.length})`}
             </span>
           </label>
           <div className="flex flex-wrap items-center gap-2">
@@ -432,11 +450,11 @@ function PortfolioPage() {
             {error instanceof Error ? error.message : "Failed to load portfolio items"}
           </p>
         </div>
-      ) : orderedItems.length > 0 ? (
+      ) : visibleItems.length > 0 ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={allIds} strategy={rectSortingStrategy}>
-            <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {orderedItems.map((item) => (
+            <div className="mt-6">
+              {visibleItems.map((item) => (
                 <SortablePortfolioCard
                   key={item.id}
                   item={item}
@@ -453,7 +471,7 @@ function PortfolioPage() {
         </DndContext>
       ) : (
         <div className="mt-8 flex flex-col items-center justify-center rounded-lg border border-dashed py-20 text-center">
-          <p className="text-muted-foreground">No portfolio items yet.</p>
+          <p className="text-muted-foreground">{tab === "draft" ? "Inbox is empty." : "No published portfolio items."}</p>
           <Link to="/portfolio/new" className="mt-4">
             <Button>
               <Plus className="mr-2 h-4 w-4" />

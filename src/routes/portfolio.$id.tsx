@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { useClientContext } from "@/contexts/ClientContext";
@@ -12,6 +12,7 @@ import {
 
 import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 import { GalleryManager } from "@/components/portfolio/GalleryManager";
+import { PortfolioScreenshots } from "@/components/portfolio/PortfolioScreenshots";
 import { CategoryTagPanel } from "@/components/portfolio/CategoryTagPanel";
 import type { ContentItem, PortfolioDetail, PortfolioItem } from "@/types";
 
@@ -33,14 +34,17 @@ function EditPortfolioPage() {
   const { id } = Route.useParams();
   const { selectedClient } = useClientContext();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data: item, isLoading, error } = useQuery({
-    queryKey: ["portfolio-item", id],
+    queryKey: ["portfolio-item", id, selectedClient?.id],
     queryFn: async () => {
       const { data: contentData, error: contentError } = await supabase
         .from("content_items")
         .select("*")
         .eq("id", id)
+        .eq("client_id", selectedClient?.id ?? "")
+        .eq("content_type", "portfolio")
         .single();
 
       if (contentError) throw contentError;
@@ -58,11 +62,14 @@ function EditPortfolioPage() {
         portfolio_details: (detailsData as PortfolioDetail | undefined) ?? undefined,
       } as PortfolioItem;
     },
-    enabled: !!id,
+    enabled: !!id && !!selectedClient,
   });
 
   const handleSave = async (data: PortfolioFormData, dynamic: DynamicSaveInput) => {
-    await updatePortfolio(id, selectedClient!.id, data, dynamic, { preserveFeaturedImage: true });
+    if (!selectedClient) throw new Error("Select a client first");
+    await updatePortfolio(id, selectedClient.id, data, dynamic, { preserveFeaturedImage: true, preserveClientName: true });
+    await queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+    await queryClient.invalidateQueries({ queryKey: ["portfolio-item", id] });
     toast.success("Portfolio updated successfully");
     navigate({ to: "/portfolio" });
   };
@@ -121,6 +128,7 @@ function EditPortfolioPage() {
       </div>
 
       {/* Category + tag assignment */}
+      <div className="mt-6 max-w-3xl"><PortfolioScreenshots contentId={item.id} clientId={selectedClient.id} /></div>
       <div className="mt-6 max-w-3xl">
         <CategoryTagPanel contentId={item.id} clientId={selectedClient.id} />
       </div>

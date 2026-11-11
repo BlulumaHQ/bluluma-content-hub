@@ -83,6 +83,7 @@ export function GalleryManager({
         .from("media_assets")
         .select(SELECT_COLS)
         .eq("content_id", contentId)
+        .or("file_type.is.null,and(file_type.neq.page_screenshot,file_type.neq.mobile_screenshot)")
         .order("sort_order", { ascending: true }),
       supabase.from("content_items").select("featured_image_url").eq("id", contentId).single(),
     ]);

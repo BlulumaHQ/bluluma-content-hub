@@ -4,6 +4,7 @@ import { GripVertical } from "lucide-react";
 
 import type { PortfolioItem, Client } from "@/types";
 import { PortfolioCard } from "@/components/portfolio/PortfolioCard";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   item: PortfolioItem;
@@ -30,16 +31,18 @@ export function SortablePortfolioCard(props: Props) {
 
   return (
     <div ref={setNodeRef} style={style} className="relative">
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         {...attributes}
         {...listeners}
         aria-label={`Drag to reorder ${props.item.title}`}
-        className="absolute left-2 top-2 z-20 flex h-8 w-8 cursor-grab items-center justify-center rounded-md bg-background/90 text-muted-foreground shadow hover:text-foreground active:cursor-grabbing touch-none"
+        className="absolute left-2 top-8 z-20 h-8 w-8 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing touch-none"
         onClick={(e) => e.preventDefault()}
       >
         <GripVertical className="h-4 w-4" />
-      </button>
+      </Button>
       <PortfolioCard
         item={props.item}
         client={props.client}

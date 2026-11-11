@@ -2,10 +2,11 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Upload, X, Loader2, ChevronDown } from "lucide-react";
+import { Upload, X, Loader2, ChevronDown, Plus } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
-import { TagInput } from "@/components/ui/TagInput";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DEFAULT_PORTFOLIO_SERVICES, PORTFOLIO_WEBSITES, toggleSelection, addCustomService } from "@/lib/portfolio-editor";
 import { CreatableMultiSelect } from "@/components/ui/CreatableMultiSelect";
 
 const ARCHITECT_ROLE_OPTIONS = [
@@ -45,7 +46,7 @@ import {
 } from "@/components/ui/select";
 import type { Client, PortfolioItem } from "@/types";
 import {
-  emptyPortfolioForm,
+  newPortfolioEditorForm,
   portfolioFormFrom,
   type DynamicSaveInput,
   type PortfolioFormData,
@@ -100,8 +101,9 @@ export function PortfolioForm({ client, initialData, onSave, onCancel, hideFeatu
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState<PortfolioFormData>(
-    initialData ? portfolioFormFrom(initialData) : emptyPortfolioForm(),
+    initialData ? portfolioFormFrom(initialData) : newPortfolioEditorForm(),
   );
+  const [customService, setCustomService] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(
     initialData?.featured_image_url ?? null,
   );
@@ -112,7 +114,10 @@ export function PortfolioForm({ client, initialData, onSave, onCancel, hideFeatu
     error: definitionsError,
   } = useQuery({
     queryKey: ["portfolio-field-definitions", client.id, client.industry ?? null],
-    queryFn: () => getPortfolioFieldDefinitions(client),
+    queryFn: async () => (await getPortfolioFieldDefinitions(client)).filter((def) =>
+      def.field_key !== "client_name" && def.field_key !== "services" &&
+      def.settings?.legacy_column !== "client_name" && def.settings?.legacy_column !== "services" &&
+      !/^client name$/i.test(def.label_en.trim())),
   });
 
   const [dynamicState, setDynamicState] = useState<DynamicMetadataState>({});
@@ -272,6 +277,17 @@ export function PortfolioForm({ client, initialData, onSave, onCancel, hideFeatu
     <form onSubmit={onSubmit} className="max-w-3xl space-y-4">
       {/* 1. Basic info */}
       <Section title="1. Basic Information" defaultOpen>
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Show on</legend>
+          <div className="flex flex-wrap gap-5">
+            {PORTFOLIO_WEBSITES.map((website) => (
+              <label key={website.value} className="flex items-center gap-2 text-sm">
+                <Checkbox checked={(form.show_on ?? []).includes(website.value)} onCheckedChange={(checked) => set("show_on", toggleSelection(form.show_on ?? [], website.value, checked === true))} />
+                {website.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="title">Title (EN) *</Label>
@@ -388,6 +404,23 @@ export function PortfolioForm({ client, initialData, onSave, onCancel, hideFeatu
       </Section>
 
       {/* 2. Location */}
+      <Section title="Services" defaultOpen>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[...new Set([...DEFAULT_PORTFOLIO_SERVICES, ...form.services])].map((service) => (
+            <label key={service} className="flex items-center gap-2 text-sm">
+              <Checkbox checked={form.services.includes(service)} onCheckedChange={(checked) => set("services", toggleSelection(form.services, service, checked === true))} />
+              {service}
+            </label>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <Input aria-label="Add custom service" placeholder="Add custom service" value={customService} onChange={(e) => setCustomService(e.target.value)} onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            e.preventDefault(); set("services", addCustomService(form.services, customService)); setCustomService("");
+          }} />
+          <Button type="button" variant="outline" size="icon" aria-label="Add service" title="Add service" disabled={!customService.trim()} onClick={() => { set("services", addCustomService(form.services, customService)); setCustomService(""); }}><Plus /></Button>
+        </div>
+      </Section>
       <Section title="2. Location">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Field name="city" label="City" placeholder="Vancouver" />
@@ -440,14 +473,6 @@ export function PortfolioForm({ client, initialData, onSave, onCancel, hideFeatu
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Area name="body_content" label="Body Content (EN)" rows={8} />
           <Area name="body_content_zh" label="內文 (ZH)" rows={8} />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Services</Label>
-          <TagInput
-            tags={form.services}
-            onChange={(tags) => set("services", tags)}
-            placeholder="Add service and press Enter"
-          />
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field name="role" label="Role" placeholder="Construction Manager" />

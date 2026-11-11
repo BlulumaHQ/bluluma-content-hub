@@ -36,7 +36,7 @@ function NewPortfolioPage() {
   }
 
   const handleSave = async (data: PortfolioFormData, dynamic: DynamicSaveInput) => {
-    const id = await createPortfolio(selectedClient.id, data, dynamic);
+    const id = await createPortfolio(selectedClient.id, data, dynamic, { preserveClientName: true });
     toast.success("Portfolio created successfully");
     navigate({ to: "/portfolio/$id", params: { id } });
   };

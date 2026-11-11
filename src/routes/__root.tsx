@@ -123,15 +123,16 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function AppShell() {
   const location = useLocation();
   const isAuthRoute = location.pathname === "/auth";
+  const isPortfolioRoute = location.pathname === "/portfolio" || location.pathname.startsWith("/portfolio/");
 
   if (isAuthRoute) return <Outlet />;
 
   return (
     <ClientProvider>
-      <div className="flex h-screen w-full overflow-hidden">
+      <div className={`flex h-screen w-full overflow-hidden ${isPortfolioRoute ? "[&>aside]:hidden md:[&>aside]:flex" : ""}`}>
         <AppSidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <TopBar />
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <TopBar compactMobile={isPortfolioRoute} />
           <main className="flex-1 overflow-auto bg-background p-6">
             <Outlet />
           </main>

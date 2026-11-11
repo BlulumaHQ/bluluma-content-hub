@@ -6,6 +6,7 @@ import {
   type PortfolioFieldDefinition,
 } from "@/lib/field-definitions";
 import type { PortfolioItem } from "@/types";
+import { DEFAULT_PORTFOLIO_SERVICES } from "@/lib/portfolio-editor";
 
 /** Dynamic metadata payload handed to the save operations. */
 export interface DynamicSaveInput {
@@ -24,6 +25,7 @@ export interface PortfolioFormData {
   body_content: string;
   body_content_zh: string;
   featured_image_url: string;
+  show_on?: string[];
   status: "draft" | "published" | "archived";
   is_featured: boolean;
   sort_order: number;
@@ -146,6 +148,7 @@ export function portfolioFormFrom(item: PortfolioItem): PortfolioFormData {
     body_content: s(item.body_content),
     body_content_zh: s(item.body_content_zh),
     featured_image_url: s(item.featured_image_url),
+    show_on: item.show_on ?? [],
     status: item.status ?? "draft",
     is_featured: item.is_featured ?? false,
     sort_order: item.sort_order ?? 0,
@@ -203,6 +206,7 @@ export function portfolioFormFrom(item: PortfolioItem): PortfolioFormData {
 /** Only columns that exist on content_items. */
 export function buildContentPayload(data: PortfolioFormData) {
   return {
+    ...(data.show_on === undefined ? {} : { show_on: [...new Set(data.show_on)] }),
     title: data.title.trim(),
     title_zh: txt(data.title_zh),
     slug: data.slug.trim(),
@@ -223,14 +227,14 @@ export function buildContentPayload(data: PortfolioFormData) {
 }
 
 /** Only columns that exist on portfolio_details. */
-export function buildDetailsPayload(data: PortfolioFormData) {
+export function buildDetailsPayload(data: PortfolioFormData, options?: { preserveClientName?: boolean }) {
   const services = Array.isArray(data.services)
     ? data.services.map((s) => String(s).trim()).filter(Boolean)
     : [];
   return {
+    ...(options?.preserveClientName ? {} : { client_name: data.title.trim() }),
     live_url: txt(data.live_url),
     services: services.length ? services : null,
-    client_name: data.title.trim(),
     project_year: txt(data.project_year),
     short_summary: txt(data.short_summary),
     location: txt(data.location),
@@ -292,7 +296,7 @@ export async function updatePortfolio(
   clientId: string,
   data: PortfolioFormData,
   dynamic?: DynamicSaveInput,
-  options?: { preserveFeaturedImage?: boolean },
+  options?: { preserveFeaturedImage?: boolean; preserveClientName?: boolean },
 ) {
   const contentPayload = buildContentPayload(data);
   // When GalleryManager owns the Featured Image, the form holds a snapshot of
@@ -305,13 +309,16 @@ export async function updatePortfolio(
     .from("content_items")
     .update(contentPayload)
     .eq("id", contentId)
-    .eq("client_id", clientId);
+    .eq("client_id", clientId)
+    .eq("content_type", "portfolio")
+    .select("id")
+    .single();
   if (contentError) {
     console.error("[portfolio] content_items update error", contentError);
     throw new Error(contentError.message);
   }
 
-  const basePayload = buildDetailsPayload(data);
+  const basePayload = buildDetailsPayload(data, options);
   const { data: existing, error: fetchError } = await supabase
     .from("portfolio_details")
     .select("id, additional_project_data")
@@ -361,6 +368,7 @@ export async function createPortfolio(
   clientId: string,
   data: PortfolioFormData,
   dynamic?: DynamicSaveInput,
+  options?: { preserveClientName?: boolean },
 ) {
   let sort = Number(data.sort_order);
   if (!Number.isFinite(sort) || sort <= 0) {
@@ -390,7 +398,7 @@ export async function createPortfolio(
 
   const detailsPayload = dynamic
     ? {
-        ...buildDetailsPayload(data),
+        ...buildDetailsPayload(data, options),
         ...buildLegacyOverrides(dynamic.definitions, dynamic.values),
         additional_project_data: mergeAdditionalProjectData(
           null,
@@ -398,7 +406,7 @@ export async function createPortfolio(
           dynamic.values,
         ),
       }
-    : buildDetailsPayload(data);
+    : buildDetailsPayload(data, options);
 
   const { error: detailsError } = await supabase
     .from("portfolio_details")
@@ -409,4 +417,9 @@ export async function createPortfolio(
   }
 
   return created.id as string;
+}
+
+/** Editor defaults are separate from bulk import defaults. */
+export function newPortfolioEditorForm(): PortfolioFormData {
+  return { ...emptyPortfolioForm(), show_on: [], services: [...DEFAULT_PORTFOLIO_SERVICES] };
 }
