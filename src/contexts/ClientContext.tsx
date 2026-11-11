@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Client } from "@/types";
 
@@ -11,6 +11,8 @@ interface ClientContextValue {
   isLoading: boolean;
   error: string | null;
   refreshClients: () => Promise<void>;
+  /** Register a check run before switching client; return false to cancel. */
+  setSwitchGuard: (guard: (() => boolean) | null) => void;
 }
 
 const ClientContext = createContext<ClientContextValue | undefined>(undefined);
@@ -27,7 +29,10 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     else window.localStorage.removeItem(STORAGE_KEY);
   };
 
+  const guardRef = useRef<(() => boolean) | null>(null);
+  const setSwitchGuard = useCallback((guard: (() => boolean) | null) => { guardRef.current = guard; }, []);
   const setSelectedClient = useCallback((client: Client | null) => {
+    if (guardRef.current && !guardRef.current()) return;
     setSelectedClientState(client);
     persist(client);
   }, []);
@@ -74,6 +79,7 @@ export function ClientProvider({ children }: { children: ReactNode }) {
         isLoading,
         error,
         refreshClients: loadClients,
+        setSwitchGuard,
       }}
     >
       {children}

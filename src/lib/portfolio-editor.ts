@@ -44,3 +44,21 @@ export function applyShowOn(current: string[] | null | undefined, picked: string
 export function showOnAfterPublish(current: string[] | null | undefined) {
   return current && current.length > 0 ? current : ["bluluma"];
 }
+
+/** Toggle a pending featured change; drops the entry when it matches the saved value. */
+export function togglePendingFeatured(pending: Map<string, boolean>, id: string, saved: boolean) {
+  const next = new Map(pending);
+  const target = !(pending.has(id) ? pending.get(id)! : saved);
+  if (target === saved) next.delete(id); else next.set(id, target);
+  return next;
+}
+
+export function splitFeaturedChanges(pending: Map<string, boolean>) {
+  const on: string[] = [], off: string[] = [];
+  pending.forEach((v, id) => (v ? on : off).push(id));
+  return { on, off };
+}
+
+export function countFeatured(items: { id: string; is_featured: boolean }[], pending: Map<string, boolean>) {
+  return items.filter((i) => (pending.has(i.id) ? pending.get(i.id) : i.is_featured)).length;
+}

@@ -71,3 +71,18 @@ describe("Portfolio editor rules", () => {
     expect(safeWebsiteUrl("javascript:alert(1)")).toBeNull();
   });
 });
+import { togglePendingFeatured, splitFeaturedChanges, countFeatured } from "@/lib/portfolio-editor";
+describe("featured quick toggle", () => {
+  it("toggling twice clears the pending change", () => {
+    const a = togglePendingFeatured(new Map(), "x", false);
+    expect(a.get("x")).toBe(true);
+    expect(togglePendingFeatured(a, "x", false).size).toBe(0);
+  });
+  it("splits into featured and unfeatured batches", () => {
+    expect(splitFeaturedChanges(new Map([["a", true], ["b", false], ["c", true]]))).toEqual({ on: ["a", "c"], off: ["b"] });
+  });
+  it("counts saved plus pending state", () => {
+    const items = [{ id: "a", is_featured: true }, { id: "b", is_featured: false }, { id: "c", is_featured: true }];
+    expect(countFeatured(items, new Map([["b", true], ["c", false]]))).toBe(2);
+  });
+});

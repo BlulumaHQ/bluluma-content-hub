@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, Pencil, Trash2, Check } from "lucide-react";
+import { ExternalLink, Pencil, Trash2, Check, Star } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 import type { PortfolioItem, Client } from "@/types";
@@ -31,9 +32,12 @@ interface PortfolioCardProps {
   onEdited: () => void;
   selected?: boolean;
   onToggleSelect?: (id: string, next: boolean) => void;
+  featured?: boolean;
+  featuredPending?: boolean;
+  onToggleFeatured?: (id: string) => void;
 }
 
-export function PortfolioCard({ item, client, onDelete, onEdited, selected, onToggleSelect }: PortfolioCardProps) {
+export function PortfolioCard({ item, client, onDelete, onEdited, selected, onToggleSelect, featured, featuredPending, onToggleFeatured }: PortfolioCardProps) {
   const details = item.portfolio_details;
   const services = details?.services ?? [];
   const [editOpen, setEditOpen] = useState(false);
@@ -89,7 +93,28 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
           />
         </div>
       )}
-      <div className="ml-10 h-20 w-28 shrink-0 overflow-hidden rounded-md bg-muted">
+      <div className="relative ml-10 h-20 w-28 shrink-0 overflow-hidden rounded-md bg-muted">
+        {onToggleFeatured && (() => {
+          const isOn = featured ?? item.is_featured;
+          const label = isOn ? "Remove from featured" : "Mark as featured";
+          return (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" aria-label={label} aria-pressed={isOn}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFeatured(item.id); }}
+                    className="absolute right-0 top-0 z-10 flex h-9 w-9 items-center justify-center rounded-bl-md bg-background/80 backdrop-blur-sm hover:bg-background">
+                    <Star className={`h-5 w-5 ${isOn ? "fill-[var(--featured)] text-[var(--featured)]" : "text-muted-foreground"}`} />
+                    {featuredPending && <span aria-hidden className="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{label}{featuredPending ? " (unsaved)" : ""}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        })()}
         {item.featured_image_url ? (
           <img
             src={item.featured_image_url}
@@ -116,7 +141,8 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
           >
             {item.status}
           </span>
-          {item.is_featured && (
+          {featuredPending && <span className="inline-flex rounded-full border border-destructive/40 px-2 py-0.5 text-xs font-medium text-destructive">Unsaved</span>}
+          {(featured ?? item.is_featured) && (
             <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
               Featured
             </span>

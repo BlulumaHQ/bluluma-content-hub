@@ -27,7 +27,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { filterPortfolioTab, PORTFOLIO_WEBSITES, applyShowOn, type ShowOnMode } from "@/lib/portfolio-editor";
+import { filterPortfolioTab, PORTFOLIO_WEBSITES, applyShowOn, type ShowOnMode, togglePendingFeatured, splitFeaturedChanges, countFeatured } from "@/lib/portfolio-editor";
+import { Star } from "lucide-react";
 import { bulkSetStatus, bulkSetShowOn } from "@/lib/portfolio-screenshots";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -94,6 +95,10 @@ function PortfolioPage() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState<"draft" | "published">("draft");
+  const [pendingFeatured, setPendingFeatured] = useState<Map<string, boolean>>(new Map());
+  const [featuredOnly, setFeaturedOnly] = useState(false);
+  const [savingFeatured, setSavingFeatured] = useState(false);
+  const hasUnsaved = dirty || pendingFeatured.size > 0;
 
   const { data: items, isLoading, error } = useQuery({
     queryKey: ["portfolio", selectedClient?.id],
@@ -150,24 +155,32 @@ function PortfolioPage() {
   useEffect(() => {
     setDirty(false);
     setSelected(new Set());
+    setPendingFeatured(new Map());
   }, [selectedClient?.id]);
+
+  const { setSwitchGuard } = useClientContext();
+  useEffect(() => {
+    if (!hasUnsaved) { setSwitchGuard(null); return; }
+    setSwitchGuard(() => window.confirm(pendingFeatured.size > 0 ? "You have unsaved featured changes. Switch client and discard them?" : "You have unsaved order changes. Switch client and discard them?"));
+    return () => setSwitchGuard(null);
+  }, [hasUnsaved, pendingFeatured.size, setSwitchGuard]);
 
   // Warn on unload with unsaved changes
   useEffect(() => {
-    if (!dirty) return;
+    if (!hasUnsaved) return;
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty]);
+  }, [hasUnsaved]);
 
   // Block in-app navigation when dirty
   useBlocker({
     shouldBlockFn: () => {
-      if (!dirty) return false;
-      return !window.confirm("You have unsaved order changes. Leave without saving?");
+      if (!hasUnsaved) return false;
+      return !window.confirm(pendingFeatured.size > 0 ? "You have unsaved featured changes. Leave without saving?" : "You have unsaved order changes. Leave without saving?");
     },
   });
 
@@ -192,7 +205,35 @@ function PortfolioPage() {
     setDirty(true);
   };
 
-  const visibleItems = useMemo(() => filterPortfolioTab(orderedItems, tab), [orderedItems, tab]);
+  const isFeatured = (i: PortfolioItem) => (pendingFeatured.has(i.id) ? pendingFeatured.get(i.id)! : i.is_featured);
+  const visibleItems = useMemo(() => {
+    const list = filterPortfolioTab(orderedItems, tab);
+    return featuredOnly ? list.filter((i) => (pendingFeatured.has(i.id) ? pendingFeatured.get(i.id) : i.is_featured)) : list;
+  }, [orderedItems, tab, featuredOnly, pendingFeatured]);
+  const featuredCount = useMemo(() => countFeatured(items ?? [], pendingFeatured), [items, pendingFeatured]);
+  const toggleFeatured = (id: string) => {
+    const item = orderedItems.find((i) => i.id === id);
+    if (item) setPendingFeatured((p) => togglePendingFeatured(p, id, item.is_featured));
+  };
+  const saveFeatured = async () => {
+    if (!selectedClient || pendingFeatured.size === 0 || savingFeatured) return;
+    setSavingFeatured(true);
+    try {
+      const { on, off } = splitFeaturedChanges(pendingFeatured);
+      for (const [ids, value] of [[on, true], [off, false]] as const) {
+        if (ids.length === 0) continue;
+        const { error: e } = await supabase.from("content_items").update({ is_featured: value }).in("id", ids).eq("client_id", selectedClient.id).eq("content_type", "portfolio");
+        if (e) throw e;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["portfolio", selectedClient.id] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats", selectedClient.id] });
+      const n = pendingFeatured.size;
+      setPendingFeatured(new Map());
+      toast.success(`Saved ${n} featured change${n === 1 ? "" : "s"}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save featured changes");
+    } finally { setSavingFeatured(false); }
+  };
   const allIds = useMemo(() => visibleItems.map((i) => i.id), [visibleItems]);
   const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id));
   const someSelected = selected.size > 0;
@@ -451,6 +492,8 @@ function PortfolioPage() {
             </span>
           </label>
           <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 text-sm font-medium"><Star className="h-4 w-4 fill-[var(--featured)] text-[var(--featured)]" />Featured: {featuredCount}</span>
+            <Button size="sm" variant={featuredOnly ? "default" : "outline"} aria-pressed={featuredOnly} onClick={() => setFeaturedOnly((v) => !v)}>Featured only</Button>
             {dirty && (
               <span className="text-sm font-medium text-amber-600">
                 Unsaved order changes
@@ -521,7 +564,10 @@ function PortfolioPage() {
                   onEdited={refresh}
                   selected={selected.has(item.id)}
                   onToggleSelect={toggleOne}
-                  disabled={saving}
+                  disabled={saving || featuredOnly}
+                  featured={isFeatured(item)}
+                  featuredPending={pendingFeatured.has(item.id)}
+                  onToggleFeatured={toggleFeatured}
                 />
               ))}
             </div>
@@ -536,6 +582,16 @@ function PortfolioPage() {
               Add First Portfolio
             </Button>
           </Link>
+        </div>
+      )}
+
+      {pendingFeatured.size > 0 && (
+        <div className="sticky bottom-0 z-30 mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-background p-3 shadow-md">
+          <span className="text-sm font-semibold">{pendingFeatured.size} unsaved featured change{pendingFeatured.size === 1 ? "" : "s"}</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={savingFeatured} onClick={() => setPendingFeatured(new Map())}>Discard</Button>
+            <Button size="sm" disabled={savingFeatured} onClick={saveFeatured}>{savingFeatured ? "Saving…" : "Save changes"}</Button>
+          </div>
         </div>
       )}
 

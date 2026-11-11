@@ -14,6 +14,9 @@ interface Props {
   selected?: boolean;
   onToggleSelect?: (id: string, next: boolean) => void;
   disabled?: boolean;
+  featured?: boolean;
+  featuredPending?: boolean;
+  onToggleFeatured?: (id: string) => void;
 }
 
 export function SortablePortfolioCard(props: Props) {
@@ -50,6 +53,9 @@ export function SortablePortfolioCard(props: Props) {
         onEdited={props.onEdited}
         selected={props.selected}
         onToggleSelect={props.onToggleSelect}
+        featured={props.featured}
+        featuredPending={props.featuredPending}
+        onToggleFeatured={props.onToggleFeatured}
       />
     </div>
   );
