@@ -9,7 +9,7 @@ import {
   type PortfolioFormData,
 } from "@/lib/portfolio";
 
-export const Route = createFileRoute("/portfolio/new")({
+export const Route = createFileRoute("/_cms/portfolio/new")({
   head: () => ({
     meta: [
       { title: "New Portfolio — Bluluma CMS Admin" },

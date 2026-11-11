@@ -53,7 +53,7 @@ import {
 import { validateImport, type ValidatedRow } from "@/lib/portfolio-import-validation";
 import type { PortfolioItem } from "@/types";
 
-export const Route = createFileRoute("/portfolio/import")({
+export const Route = createFileRoute("/_cms/portfolio/import")({
   head: () => ({
     meta: [
       { title: "Bulk Import Portfolio — Bluluma CMS Admin" },

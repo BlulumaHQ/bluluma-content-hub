@@ -1,5 +1,8 @@
-import { Link } from "@tanstack/react-router";
-import { AlertTriangle } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { AlertTriangle, LogOut } from "lucide-react";
+import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import { useClientContext } from "@/contexts/ClientContext";
 import {
   Select,
@@ -12,11 +15,23 @@ import { Button } from "@/components/ui/button";
 
 export function TopBar({ compactMobile = false }: { compactMobile?: boolean }) {
   const { clients, selectedClient, setSelectedClient, isLoading } = useClientContext();
-
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [signingOut, setSigningOut] = useState(false);
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+      await navigate({ to: "/login", replace: true, ignoreBlocker: true });
+    } catch {
+      toast.error("Unable to sign out. Please try again.");
+      setSigningOut(false);
+    }
+  };
 
   return (
-    <header className={`flex h-16 shrink-0 items-center justify-between border-b bg-card px-6 ${compactMobile ? "max-md:px-4" : ""}`}>
-      <div className={`flex items-center gap-3 ${compactMobile ? "max-md:hidden" : ""}`}>
+    <header className={`flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-card px-6 py-3 ${compactMobile ? "max-md:px-4" : ""}`}>
+      <div className={`flex min-w-0 flex-wrap items-center gap-3 ${compactMobile ? "max-md:hidden" : ""}`}>
         {selectedClient ? (
           <>
             <span className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -39,8 +54,8 @@ export function TopBar({ compactMobile = false }: { compactMobile?: boolean }) {
         )}
       </div>
 
-      <div className={`flex items-center gap-2 ${compactMobile ? "max-md:w-full" : ""}`}>
-        <div className={`w-64 ${compactMobile ? "max-md:min-w-0 max-md:flex-1" : ""}`}>
+      <div className="flex min-w-0 flex-wrap items-center gap-2 max-md:w-full">
+        <div className="w-64 max-md:min-w-0 max-md:flex-1">
           <Select
             value={selectedClient?.id ?? ""}
             onValueChange={(value) => {
@@ -66,6 +81,12 @@ export function TopBar({ compactMobile = false }: { compactMobile?: boolean }) {
             + New Client
           </Button>
         </Link>
+        <div className="flex min-w-0 items-center gap-2 max-md:w-full max-md:justify-end">
+          <span className="max-w-48 truncate text-xs text-muted-foreground" title={user?.email}>{user?.email}</span>
+          <Button size="sm" variant="ghost" onClick={handleSignOut} disabled={signingOut}>
+            <LogOut className="h-4 w-4" />{signingOut ? "Signing out…" : "Sign out"}
+          </Button>
+        </div>
       </div>
     </header>
   );

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useClientContext } from "@/contexts/ClientContext";
 
-export const Route = createFileRoute("/settings")({
+export const Route = createFileRoute("/_cms/settings")({
   head: () => ({
     meta: [
       { title: "Settings — Bluluma CMS Admin" },

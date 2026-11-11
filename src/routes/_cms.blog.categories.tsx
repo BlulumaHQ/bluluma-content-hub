@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CategoriesManager } from "@/components/taxonomy/Managers";
 
-export const Route = createFileRoute("/blog/categories")({
+export const Route = createFileRoute("/_cms/blog/categories")({
   head: () => ({ meta: [
     { title: "Blog Categories — Bluluma CMS" },
     { name: "description", content: "Manage categories for blog posts in the Bluluma CMS." },

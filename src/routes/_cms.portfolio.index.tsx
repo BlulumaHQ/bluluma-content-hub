@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import type { ContentItem, PortfolioDetail, PortfolioItem } from "@/types";
 
-export const Route = createFileRoute("/portfolio/")({
+export const Route = createFileRoute("/_cms/portfolio/")({
   head: () => ({
     meta: [
       { title: "Portfolio — Bluluma CMS Admin" },

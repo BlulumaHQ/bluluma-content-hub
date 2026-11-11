@@ -12,7 +12,7 @@ import { useClientContext } from "@/contexts/ClientContext";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_cms/")({
   head: () => ({
     meta: [
       { title: "Dashboard — Bluluma CMS Admin" },

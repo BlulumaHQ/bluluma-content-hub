@@ -5,7 +5,7 @@ import { useClientContext } from "@/contexts/ClientContext";
 import { supabase } from "@/lib/supabase";
 import type { MediaAsset } from "@/types";
 
-export const Route = createFileRoute("/media")({
+export const Route = createFileRoute("/_cms/media")({
   head: () => ({
     meta: [
       { title: "Media Library — Bluluma CMS Admin" },

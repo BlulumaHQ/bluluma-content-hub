@@ -11,7 +11,7 @@ describe("CMS search indexing protection", () => {
     for (const file of files.filter((name) => name.endsWith(".tsx"))) {
       const source = await readFile(`src/routes/${file}`, "utf8");
       const path = source.match(/createFileRoute\("([^"]+)"\)/)?.[1];
-      if (path) paths.add(path.replace(/\$\w+/g, "00000000-0000-0000-0000-000000000000"));
+      if (path && path !== "/_cms") paths.add(path.replace(/^\/_cms/, "").replace(/\$\w+/g, "00000000-0000-0000-0000-000000000000"));
     }
     expect(paths.size).toBeGreaterThan(0);
     for (const path of paths) {

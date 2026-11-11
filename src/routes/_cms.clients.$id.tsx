@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import type { Client } from "@/types";
 
-export const Route = createFileRoute("/clients/$id")({
+export const Route = createFileRoute("/_cms/clients/$id")({
   head: () => ({ meta: [
     { title: "Edit Client — Bluluma CMS Admin" },
     { name: "description", content: "View and edit a client in the Bluluma CMS." },

@@ -6,7 +6,7 @@ import { useClientContext } from "@/contexts/ClientContext";
 import { fetchBlogPost } from "@/lib/blog";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/blog/preview/$id")({
+export const Route = createFileRoute("/_cms/blog/preview/$id")({
   head: () => ({
     meta: [{ title: "Blog Preview — Bluluma CMS Admin" },
       { name: "description", content: "Preview a blog post before publishing." },

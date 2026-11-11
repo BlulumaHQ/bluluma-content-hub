@@ -13,6 +13,14 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    // Auth can consume the recovery hash before React mounts its root listener.
+    // Capture recovery intent during URL detection, then still validate the user.
+    detectSessionInUrl: (_url, params) => {
+      if (typeof window !== "undefined" && window.location.pathname === "/reset-password" && params.type === "recovery") {
+        window.sessionStorage.setItem("bluluma.cms.recovery", "true");
+      }
+      return Boolean(params.access_token || params.error_description);
+    },
     storage: typeof window !== "undefined" ? window.localStorage : undefined,
     storageKey: "bluluma.cms.auth",
   },

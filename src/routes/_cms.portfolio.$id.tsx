@@ -16,7 +16,7 @@ import { PortfolioScreenshots } from "@/components/portfolio/PortfolioScreenshot
 import { CategoryTagPanel } from "@/components/portfolio/CategoryTagPanel";
 import type { ContentItem, PortfolioDetail, PortfolioItem } from "@/types";
 
-export const Route = createFileRoute("/portfolio/$id")({
+export const Route = createFileRoute("/_cms/portfolio/$id")({
   head: () => ({
     meta: [
       { title: "Edit Portfolio — Bluluma CMS Admin" },

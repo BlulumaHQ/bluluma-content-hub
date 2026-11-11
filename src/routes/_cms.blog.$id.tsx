@@ -7,7 +7,7 @@ import { BlogForm } from "@/components/blog/BlogForm";
 import { fetchBlogPost, updateBlogPost } from "@/lib/blog";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/blog/$id")({
+export const Route = createFileRoute("/_cms/blog/$id")({
   head: () => ({
     meta: [{ title: "Edit Blog Post — Bluluma CMS Admin" },
       { name: "description", content: "View and edit a blog post in the Bluluma CMS." },

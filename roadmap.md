@@ -12,3 +12,8 @@
 - [x] Add Inbox/Published rows with categories, website badges, and publishing.
 - [x] Test portfolio rules and verify saving, captions, ordering, screenshot deletion, and publishing with disposable records; all test records removed.
 - [ ] Enable version deletion for the current database role. Blocker: existing database permissions deny DELETE on portfolio_versions; no permissions changed in this request.
+
+# CMS email login
+- [x] Add email-only sign-in/signup, existing is_admin authorization, persistent route protection, header sign-out, and password recovery without database or permission changes.
+- [x] Test authorization and password rules; verify available browser flows and report external-account verification limitations.
+- [ ] Verify real administrator sign-in and delivered recovery emails. Blocker: existing external backend accounts cannot be minted or inspected through this project's managed backend; simulated-account checks only.

@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import type { Client } from "@/types";
 
-export const Route = createFileRoute("/clients/")({
+export const Route = createFileRoute("/_cms/clients/")({
   head: () => ({ meta: [
     { title: "Clients — Bluluma CMS Admin" },
     { name: "description", content: "Manage clients in the Bluluma CMS." },

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TagsManager } from "@/components/taxonomy/Managers";
 
-export const Route = createFileRoute("/portfolio/tags")({
+export const Route = createFileRoute("/_cms/portfolio/tags")({
   head: () => ({ meta: [
     { title: "Portfolio Tags — Bluluma CMS" },
     { name: "description", content: "Manage tags for portfolio items in the Bluluma CMS." },

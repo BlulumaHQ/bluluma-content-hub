@@ -6,7 +6,7 @@ import { useClientContext } from "@/contexts/ClientContext";
 import { BlogForm } from "@/components/blog/BlogForm";
 import { createBlogPost } from "@/lib/blog";
 
-export const Route = createFileRoute("/blog/new")({
+export const Route = createFileRoute("/_cms/blog/new")({
   head: () => ({
     meta: [{ title: "New Blog Post — Bluluma CMS Admin" },
       { name: "description", content: "Create a new blog post in the Bluluma CMS." },

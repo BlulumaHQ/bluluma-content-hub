@@ -4,17 +4,15 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
-  useLocation,
   HeadContent,
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 
-import { ClientProvider } from "@/contexts/ClientContext";
+import { useEffect } from "react";
+import type { CmsAuth } from "@/lib/cms-auth";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { AppSidebar } from "@/components/layout/AppSidebar";
-import { TopBar } from "@/components/layout/TopBar";
 
 import appCss from "../styles.css?url";
 
@@ -76,7 +74,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient; auth: CmsAuth }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -118,37 +116,21 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-// NOTE: Mandatory auth gate is temporarily disabled for development.
-// AuthContext and /auth remain available to re-enable before production.
-function AppShell() {
-  const location = useLocation();
-  const isAuthRoute = location.pathname === "/auth";
-  const isPortfolioRoute = location.pathname === "/portfolio" || location.pathname.startsWith("/portfolio/");
-
-  if (isAuthRoute) return <Outlet />;
-
-  return (
-    <ClientProvider>
-      <div className={`flex h-screen w-full overflow-hidden ${isPortfolioRoute ? "[&>aside]:hidden md:[&>aside]:flex" : ""}`}>
-        <AppSidebar />
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <TopBar compactMobile={isPortfolioRoute} />
-          <main className="flex-1 overflow-auto bg-background p-6">
-            <Outlet />
-          </main>
-        </div>
-      </div>
-    </ClientProvider>
-  );
-}
-
 function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
+  const { queryClient, auth } = Route.useRouteContext();
+  const router = useRouter();
+  useEffect(() => auth.start((signedOut) => {
+    if (signedOut && router.state.location.pathname !== "/reset-password") {
+      void router.navigate({ to: "/login", replace: true, ignoreBlocker: true });
+    }
+    void router.invalidate();
+    if (!signedOut) void queryClient.invalidateQueries();
+  }), [auth, router, queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppShell />
+      <AuthProvider auth={auth}>
+        <Outlet />
         <Toaster position="top-right" />
       </AuthProvider>
     </QueryClientProvider>

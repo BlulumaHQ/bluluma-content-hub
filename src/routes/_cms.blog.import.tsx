@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/blog/import")({
+export const Route = createFileRoute("/_cms/blog/import")({
   head: () => ({ meta: [
     { title: "Bulk Import Blog — Bluluma CMS" },
     { name: "description", content: "Import blog posts in bulk into the Bluluma CMS." },

@@ -9,33 +9,35 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as CmsRouteImport } from './routes/_cms'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as BlogRouteImport } from './routes/blog'
-import { Route as ClientsRouteImport } from './routes/clients'
-import { Route as MediaRouteImport } from './routes/media'
-import { Route as PortfolioRouteImport } from './routes/portfolio'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as BlogIndexRouteImport } from './routes/blog.index'
-import { Route as BlogIdRouteImport } from './routes/blog.$id'
-import { Route as BlogCategoriesRouteImport } from './routes/blog.categories'
-import { Route as BlogImportRouteImport } from './routes/blog.import'
-import { Route as BlogNewRouteImport } from './routes/blog.new'
-import { Route as BlogTagsRouteImport } from './routes/blog.tags'
-import { Route as ClientsIndexRouteImport } from './routes/clients.index'
-import { Route as ClientsIdRouteImport } from './routes/clients.$id'
-import { Route as ClientsNewRouteImport } from './routes/clients.new'
-import { Route as PortfolioIndexRouteImport } from './routes/portfolio.index'
-import { Route as PortfolioIdRouteImport } from './routes/portfolio.$id'
-import { Route as PortfolioCategoriesRouteImport } from './routes/portfolio.categories'
-import { Route as PortfolioImportRouteImport } from './routes/portfolio.import'
-import { Route as PortfolioNewRouteImport } from './routes/portfolio.new'
-import { Route as PortfolioTagsRouteImport } from './routes/portfolio.tags'
-import { Route as BlogPreviewIdRouteImport } from './routes/blog.preview.$id'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as CmsIndexRouteImport } from './routes/_cms.index'
+import { Route as CmsBlogRouteImport } from './routes/_cms.blog'
+import { Route as CmsClientsRouteImport } from './routes/_cms.clients'
+import { Route as CmsMediaRouteImport } from './routes/_cms.media'
+import { Route as CmsPortfolioRouteImport } from './routes/_cms.portfolio'
+import { Route as CmsSettingsRouteImport } from './routes/_cms.settings'
+import { Route as CmsBlogIndexRouteImport } from './routes/_cms.blog.index'
+import { Route as CmsBlogIdRouteImport } from './routes/_cms.blog.$id'
+import { Route as CmsBlogCategoriesRouteImport } from './routes/_cms.blog.categories'
+import { Route as CmsBlogImportRouteImport } from './routes/_cms.blog.import'
+import { Route as CmsBlogNewRouteImport } from './routes/_cms.blog.new'
+import { Route as CmsBlogTagsRouteImport } from './routes/_cms.blog.tags'
+import { Route as CmsClientsIndexRouteImport } from './routes/_cms.clients.index'
+import { Route as CmsClientsIdRouteImport } from './routes/_cms.clients.$id'
+import { Route as CmsClientsNewRouteImport } from './routes/_cms.clients.new'
+import { Route as CmsPortfolioIndexRouteImport } from './routes/_cms.portfolio.index'
+import { Route as CmsPortfolioIdRouteImport } from './routes/_cms.portfolio.$id'
+import { Route as CmsPortfolioCategoriesRouteImport } from './routes/_cms.portfolio.categories'
+import { Route as CmsPortfolioImportRouteImport } from './routes/_cms.portfolio.import'
+import { Route as CmsPortfolioNewRouteImport } from './routes/_cms.portfolio.new'
+import { Route as CmsPortfolioTagsRouteImport } from './routes/_cms.portfolio.tags'
+import { Route as CmsBlogPreviewIdRouteImport } from './routes/_cms.blog.preview.$id'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CmsRoute = CmsRouteImport.update({
+  id: '/_cms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -43,190 +45,214 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BlogRoute = BlogRouteImport.update({
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CmsIndexRoute = CmsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CmsRoute,
+} as any)
+const CmsBlogRoute = CmsBlogRouteImport.update({
   id: '/blog',
   path: '/blog',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => CmsRoute,
 } as any)
-const ClientsRoute = ClientsRouteImport.update({
+const CmsClientsRoute = CmsClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => CmsRoute,
 } as any)
-const MediaRoute = MediaRouteImport.update({
+const CmsMediaRoute = CmsMediaRouteImport.update({
   id: '/media',
   path: '/media',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => CmsRoute,
 } as any)
-const PortfolioRoute = PortfolioRouteImport.update({
+const CmsPortfolioRoute = CmsPortfolioRouteImport.update({
   id: '/portfolio',
   path: '/portfolio',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => CmsRoute,
 } as any)
-const SettingsRoute = SettingsRouteImport.update({
+const CmsSettingsRoute = CmsSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => CmsRoute,
 } as any)
-const BlogIndexRoute = BlogIndexRouteImport.update({
+const CmsBlogIndexRoute = CmsBlogIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => BlogRoute,
+  getParentRoute: () => CmsBlogRoute,
 } as any)
-const BlogIdRoute = BlogIdRouteImport.update({
+const CmsBlogIdRoute = CmsBlogIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => BlogRoute,
+  getParentRoute: () => CmsBlogRoute,
 } as any)
-const BlogCategoriesRoute = BlogCategoriesRouteImport.update({
+const CmsBlogCategoriesRoute = CmsBlogCategoriesRouteImport.update({
   id: '/categories',
   path: '/categories',
-  getParentRoute: () => BlogRoute,
+  getParentRoute: () => CmsBlogRoute,
 } as any)
-const BlogImportRoute = BlogImportRouteImport.update({
+const CmsBlogImportRoute = CmsBlogImportRouteImport.update({
   id: '/import',
   path: '/import',
-  getParentRoute: () => BlogRoute,
+  getParentRoute: () => CmsBlogRoute,
 } as any)
-const BlogNewRoute = BlogNewRouteImport.update({
+const CmsBlogNewRoute = CmsBlogNewRouteImport.update({
   id: '/new',
   path: '/new',
-  getParentRoute: () => BlogRoute,
+  getParentRoute: () => CmsBlogRoute,
 } as any)
-const BlogTagsRoute = BlogTagsRouteImport.update({
+const CmsBlogTagsRoute = CmsBlogTagsRouteImport.update({
   id: '/tags',
   path: '/tags',
-  getParentRoute: () => BlogRoute,
+  getParentRoute: () => CmsBlogRoute,
 } as any)
-const ClientsIndexRoute = ClientsIndexRouteImport.update({
+const CmsClientsIndexRoute = CmsClientsIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => ClientsRoute,
+  getParentRoute: () => CmsClientsRoute,
 } as any)
-const ClientsIdRoute = ClientsIdRouteImport.update({
+const CmsClientsIdRoute = CmsClientsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => ClientsRoute,
+  getParentRoute: () => CmsClientsRoute,
 } as any)
-const ClientsNewRoute = ClientsNewRouteImport.update({
+const CmsClientsNewRoute = CmsClientsNewRouteImport.update({
   id: '/new',
   path: '/new',
-  getParentRoute: () => ClientsRoute,
+  getParentRoute: () => CmsClientsRoute,
 } as any)
-const PortfolioIndexRoute = PortfolioIndexRouteImport.update({
+const CmsPortfolioIndexRoute = CmsPortfolioIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => PortfolioRoute,
+  getParentRoute: () => CmsPortfolioRoute,
 } as any)
-const PortfolioIdRoute = PortfolioIdRouteImport.update({
+const CmsPortfolioIdRoute = CmsPortfolioIdRouteImport.update({
   id: '/$id',
   path: '/$id',
-  getParentRoute: () => PortfolioRoute,
+  getParentRoute: () => CmsPortfolioRoute,
 } as any)
-const PortfolioCategoriesRoute = PortfolioCategoriesRouteImport.update({
+const CmsPortfolioCategoriesRoute = CmsPortfolioCategoriesRouteImport.update({
   id: '/categories',
   path: '/categories',
-  getParentRoute: () => PortfolioRoute,
+  getParentRoute: () => CmsPortfolioRoute,
 } as any)
-const PortfolioImportRoute = PortfolioImportRouteImport.update({
+const CmsPortfolioImportRoute = CmsPortfolioImportRouteImport.update({
   id: '/import',
   path: '/import',
-  getParentRoute: () => PortfolioRoute,
+  getParentRoute: () => CmsPortfolioRoute,
 } as any)
-const PortfolioNewRoute = PortfolioNewRouteImport.update({
+const CmsPortfolioNewRoute = CmsPortfolioNewRouteImport.update({
   id: '/new',
   path: '/new',
-  getParentRoute: () => PortfolioRoute,
+  getParentRoute: () => CmsPortfolioRoute,
 } as any)
-const PortfolioTagsRoute = PortfolioTagsRouteImport.update({
+const CmsPortfolioTagsRoute = CmsPortfolioTagsRouteImport.update({
   id: '/tags',
   path: '/tags',
-  getParentRoute: () => PortfolioRoute,
+  getParentRoute: () => CmsPortfolioRoute,
 } as any)
-const BlogPreviewIdRoute = BlogPreviewIdRouteImport.update({
+const CmsBlogPreviewIdRoute = CmsBlogPreviewIdRouteImport.update({
   id: '/preview/$id',
   path: '/preview/$id',
-  getParentRoute: () => BlogRoute,
+  getParentRoute: () => CmsBlogRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof CmsIndexRoute
   '/auth': typeof AuthRoute
-  '/blog': typeof BlogRouteWithChildren
-  '/clients': typeof ClientsRouteWithChildren
-  '/media': typeof MediaRoute
-  '/portfolio': typeof PortfolioRouteWithChildren
-  '/settings': typeof SettingsRoute
-  '/blog/$id': typeof BlogIdRoute
-  '/blog/categories': typeof BlogCategoriesRoute
-  '/blog/import': typeof BlogImportRoute
-  '/blog/new': typeof BlogNewRoute
-  '/blog/tags': typeof BlogTagsRoute
-  '/clients/$id': typeof ClientsIdRoute
-  '/clients/new': typeof ClientsNewRoute
-  '/portfolio/$id': typeof PortfolioIdRoute
-  '/portfolio/categories': typeof PortfolioCategoriesRoute
-  '/portfolio/import': typeof PortfolioImportRoute
-  '/portfolio/new': typeof PortfolioNewRoute
-  '/portfolio/tags': typeof PortfolioTagsRoute
-  '/blog/': typeof BlogIndexRoute
-  '/clients/': typeof ClientsIndexRoute
-  '/portfolio/': typeof PortfolioIndexRoute
-  '/blog/preview/$id': typeof BlogPreviewIdRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/blog': typeof CmsBlogRouteWithChildren
+  '/clients': typeof CmsClientsRouteWithChildren
+  '/media': typeof CmsMediaRoute
+  '/portfolio': typeof CmsPortfolioRouteWithChildren
+  '/settings': typeof CmsSettingsRoute
+  '/blog/$id': typeof CmsBlogIdRoute
+  '/blog/categories': typeof CmsBlogCategoriesRoute
+  '/blog/import': typeof CmsBlogImportRoute
+  '/blog/new': typeof CmsBlogNewRoute
+  '/blog/tags': typeof CmsBlogTagsRoute
+  '/clients/$id': typeof CmsClientsIdRoute
+  '/clients/new': typeof CmsClientsNewRoute
+  '/portfolio/$id': typeof CmsPortfolioIdRoute
+  '/portfolio/categories': typeof CmsPortfolioCategoriesRoute
+  '/portfolio/import': typeof CmsPortfolioImportRoute
+  '/portfolio/new': typeof CmsPortfolioNewRoute
+  '/portfolio/tags': typeof CmsPortfolioTagsRoute
+  '/blog/': typeof CmsBlogIndexRoute
+  '/clients/': typeof CmsClientsIndexRoute
+  '/portfolio/': typeof CmsPortfolioIndexRoute
+  '/blog/preview/$id': typeof CmsBlogPreviewIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/media': typeof MediaRoute
-  '/settings': typeof SettingsRoute
-  '/blog/$id': typeof BlogIdRoute
-  '/blog/categories': typeof BlogCategoriesRoute
-  '/blog/import': typeof BlogImportRoute
-  '/blog/new': typeof BlogNewRoute
-  '/blog/tags': typeof BlogTagsRoute
-  '/clients/$id': typeof ClientsIdRoute
-  '/clients/new': typeof ClientsNewRoute
-  '/portfolio/$id': typeof PortfolioIdRoute
-  '/portfolio/categories': typeof PortfolioCategoriesRoute
-  '/portfolio/import': typeof PortfolioImportRoute
-  '/portfolio/new': typeof PortfolioNewRoute
-  '/portfolio/tags': typeof PortfolioTagsRoute
-  '/blog': typeof BlogIndexRoute
-  '/clients': typeof ClientsIndexRoute
-  '/portfolio': typeof PortfolioIndexRoute
-  '/blog/preview/$id': typeof BlogPreviewIdRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/media': typeof CmsMediaRoute
+  '/settings': typeof CmsSettingsRoute
+  '/': typeof CmsIndexRoute
+  '/blog/$id': typeof CmsBlogIdRoute
+  '/blog/categories': typeof CmsBlogCategoriesRoute
+  '/blog/import': typeof CmsBlogImportRoute
+  '/blog/new': typeof CmsBlogNewRoute
+  '/blog/tags': typeof CmsBlogTagsRoute
+  '/clients/$id': typeof CmsClientsIdRoute
+  '/clients/new': typeof CmsClientsNewRoute
+  '/portfolio/$id': typeof CmsPortfolioIdRoute
+  '/portfolio/categories': typeof CmsPortfolioCategoriesRoute
+  '/portfolio/import': typeof CmsPortfolioImportRoute
+  '/portfolio/new': typeof CmsPortfolioNewRoute
+  '/portfolio/tags': typeof CmsPortfolioTagsRoute
+  '/blog': typeof CmsBlogIndexRoute
+  '/clients': typeof CmsClientsIndexRoute
+  '/portfolio': typeof CmsPortfolioIndexRoute
+  '/blog/preview/$id': typeof CmsBlogPreviewIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_cms': typeof CmsRouteWithChildren
   '/auth': typeof AuthRoute
-  '/blog': typeof BlogRouteWithChildren
-  '/clients': typeof ClientsRouteWithChildren
-  '/media': typeof MediaRoute
-  '/portfolio': typeof PortfolioRouteWithChildren
-  '/settings': typeof SettingsRoute
-  '/blog/$id': typeof BlogIdRoute
-  '/blog/categories': typeof BlogCategoriesRoute
-  '/blog/import': typeof BlogImportRoute
-  '/blog/new': typeof BlogNewRoute
-  '/blog/tags': typeof BlogTagsRoute
-  '/clients/$id': typeof ClientsIdRoute
-  '/clients/new': typeof ClientsNewRoute
-  '/portfolio/$id': typeof PortfolioIdRoute
-  '/portfolio/categories': typeof PortfolioCategoriesRoute
-  '/portfolio/import': typeof PortfolioImportRoute
-  '/portfolio/new': typeof PortfolioNewRoute
-  '/portfolio/tags': typeof PortfolioTagsRoute
-  '/blog/': typeof BlogIndexRoute
-  '/clients/': typeof ClientsIndexRoute
-  '/portfolio/': typeof PortfolioIndexRoute
-  '/blog/preview/$id': typeof BlogPreviewIdRoute
+  '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/_cms/blog': typeof CmsBlogRouteWithChildren
+  '/_cms/clients': typeof CmsClientsRouteWithChildren
+  '/_cms/media': typeof CmsMediaRoute
+  '/_cms/portfolio': typeof CmsPortfolioRouteWithChildren
+  '/_cms/settings': typeof CmsSettingsRoute
+  '/_cms/': typeof CmsIndexRoute
+  '/_cms/blog/$id': typeof CmsBlogIdRoute
+  '/_cms/blog/categories': typeof CmsBlogCategoriesRoute
+  '/_cms/blog/import': typeof CmsBlogImportRoute
+  '/_cms/blog/new': typeof CmsBlogNewRoute
+  '/_cms/blog/tags': typeof CmsBlogTagsRoute
+  '/_cms/clients/$id': typeof CmsClientsIdRoute
+  '/_cms/clients/new': typeof CmsClientsNewRoute
+  '/_cms/portfolio/$id': typeof CmsPortfolioIdRoute
+  '/_cms/portfolio/categories': typeof CmsPortfolioCategoriesRoute
+  '/_cms/portfolio/import': typeof CmsPortfolioImportRoute
+  '/_cms/portfolio/new': typeof CmsPortfolioNewRoute
+  '/_cms/portfolio/tags': typeof CmsPortfolioTagsRoute
+  '/_cms/blog/': typeof CmsBlogIndexRoute
+  '/_cms/clients/': typeof CmsClientsIndexRoute
+  '/_cms/portfolio/': typeof CmsPortfolioIndexRoute
+  '/_cms/blog/preview/$id': typeof CmsBlogPreviewIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/auth'
+    | '/login'
+    | '/reset-password'
     | '/blog'
     | '/clients'
     | '/media'
@@ -250,10 +276,12 @@ export interface FileRouteTypes {
     | '/blog/preview/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/auth'
+    | '/login'
+    | '/reset-password'
     | '/media'
     | '/settings'
+    | '/'
     | '/blog/$id'
     | '/blog/categories'
     | '/blog/import'
@@ -272,48 +300,48 @@ export interface FileRouteTypes {
     | '/blog/preview/$id'
   id:
     | '__root__'
-    | '/'
+    | '/_cms'
     | '/auth'
-    | '/blog'
-    | '/clients'
-    | '/media'
-    | '/portfolio'
-    | '/settings'
-    | '/blog/$id'
-    | '/blog/categories'
-    | '/blog/import'
-    | '/blog/new'
-    | '/blog/tags'
-    | '/clients/$id'
-    | '/clients/new'
-    | '/portfolio/$id'
-    | '/portfolio/categories'
-    | '/portfolio/import'
-    | '/portfolio/new'
-    | '/portfolio/tags'
-    | '/blog/'
-    | '/clients/'
-    | '/portfolio/'
-    | '/blog/preview/$id'
+    | '/login'
+    | '/reset-password'
+    | '/_cms/blog'
+    | '/_cms/clients'
+    | '/_cms/media'
+    | '/_cms/portfolio'
+    | '/_cms/settings'
+    | '/_cms/'
+    | '/_cms/blog/$id'
+    | '/_cms/blog/categories'
+    | '/_cms/blog/import'
+    | '/_cms/blog/new'
+    | '/_cms/blog/tags'
+    | '/_cms/clients/$id'
+    | '/_cms/clients/new'
+    | '/_cms/portfolio/$id'
+    | '/_cms/portfolio/categories'
+    | '/_cms/portfolio/import'
+    | '/_cms/portfolio/new'
+    | '/_cms/portfolio/tags'
+    | '/_cms/blog/'
+    | '/_cms/clients/'
+    | '/_cms/portfolio/'
+    | '/_cms/blog/preview/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  CmsRoute: typeof CmsRouteWithChildren
   AuthRoute: typeof AuthRoute
-  BlogRoute: typeof BlogRouteWithChildren
-  ClientsRoute: typeof ClientsRouteWithChildren
-  MediaRoute: typeof MediaRoute
-  PortfolioRoute: typeof PortfolioRouteWithChildren
-  SettingsRoute: typeof SettingsRoute
+  LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_cms': {
+      id: '/_cms'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof CmsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -323,223 +351,263 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/blog': {
-      id: '/blog'
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_cms/': {
+      id: '/_cms/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof CmsIndexRouteImport
+      parentRoute: typeof CmsRoute
+    }
+    '/_cms/blog': {
+      id: '/_cms/blog'
       path: '/blog'
       fullPath: '/blog'
-      preLoaderRoute: typeof BlogRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof CmsBlogRouteImport
+      parentRoute: typeof CmsRoute
     }
-    '/clients': {
-      id: '/clients'
+    '/_cms/clients': {
+      id: '/_cms/clients'
       path: '/clients'
       fullPath: '/clients'
-      preLoaderRoute: typeof ClientsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof CmsClientsRouteImport
+      parentRoute: typeof CmsRoute
     }
-    '/media': {
-      id: '/media'
+    '/_cms/media': {
+      id: '/_cms/media'
       path: '/media'
       fullPath: '/media'
-      preLoaderRoute: typeof MediaRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof CmsMediaRouteImport
+      parentRoute: typeof CmsRoute
     }
-    '/portfolio': {
-      id: '/portfolio'
+    '/_cms/portfolio': {
+      id: '/_cms/portfolio'
       path: '/portfolio'
       fullPath: '/portfolio'
-      preLoaderRoute: typeof PortfolioRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof CmsPortfolioRouteImport
+      parentRoute: typeof CmsRoute
     }
-    '/settings': {
-      id: '/settings'
+    '/_cms/settings': {
+      id: '/_cms/settings'
       path: '/settings'
       fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof CmsSettingsRouteImport
+      parentRoute: typeof CmsRoute
     }
-    '/blog/': {
-      id: '/blog/'
+    '/_cms/blog/': {
+      id: '/_cms/blog/'
       path: '/'
       fullPath: '/blog/'
-      preLoaderRoute: typeof BlogIndexRouteImport
-      parentRoute: typeof BlogRoute
+      preLoaderRoute: typeof CmsBlogIndexRouteImport
+      parentRoute: typeof CmsBlogRoute
     }
-    '/blog/$id': {
-      id: '/blog/$id'
+    '/_cms/blog/$id': {
+      id: '/_cms/blog/$id'
       path: '/$id'
       fullPath: '/blog/$id'
-      preLoaderRoute: typeof BlogIdRouteImport
-      parentRoute: typeof BlogRoute
+      preLoaderRoute: typeof CmsBlogIdRouteImport
+      parentRoute: typeof CmsBlogRoute
     }
-    '/blog/categories': {
-      id: '/blog/categories'
+    '/_cms/blog/categories': {
+      id: '/_cms/blog/categories'
       path: '/categories'
       fullPath: '/blog/categories'
-      preLoaderRoute: typeof BlogCategoriesRouteImport
-      parentRoute: typeof BlogRoute
+      preLoaderRoute: typeof CmsBlogCategoriesRouteImport
+      parentRoute: typeof CmsBlogRoute
     }
-    '/blog/import': {
-      id: '/blog/import'
+    '/_cms/blog/import': {
+      id: '/_cms/blog/import'
       path: '/import'
       fullPath: '/blog/import'
-      preLoaderRoute: typeof BlogImportRouteImport
-      parentRoute: typeof BlogRoute
+      preLoaderRoute: typeof CmsBlogImportRouteImport
+      parentRoute: typeof CmsBlogRoute
     }
-    '/blog/new': {
-      id: '/blog/new'
+    '/_cms/blog/new': {
+      id: '/_cms/blog/new'
       path: '/new'
       fullPath: '/blog/new'
-      preLoaderRoute: typeof BlogNewRouteImport
-      parentRoute: typeof BlogRoute
+      preLoaderRoute: typeof CmsBlogNewRouteImport
+      parentRoute: typeof CmsBlogRoute
     }
-    '/blog/tags': {
-      id: '/blog/tags'
+    '/_cms/blog/tags': {
+      id: '/_cms/blog/tags'
       path: '/tags'
       fullPath: '/blog/tags'
-      preLoaderRoute: typeof BlogTagsRouteImport
-      parentRoute: typeof BlogRoute
+      preLoaderRoute: typeof CmsBlogTagsRouteImport
+      parentRoute: typeof CmsBlogRoute
     }
-    '/clients/': {
-      id: '/clients/'
+    '/_cms/clients/': {
+      id: '/_cms/clients/'
       path: '/'
       fullPath: '/clients/'
-      preLoaderRoute: typeof ClientsIndexRouteImport
-      parentRoute: typeof ClientsRoute
+      preLoaderRoute: typeof CmsClientsIndexRouteImport
+      parentRoute: typeof CmsClientsRoute
     }
-    '/clients/$id': {
-      id: '/clients/$id'
+    '/_cms/clients/$id': {
+      id: '/_cms/clients/$id'
       path: '/$id'
       fullPath: '/clients/$id'
-      preLoaderRoute: typeof ClientsIdRouteImport
-      parentRoute: typeof ClientsRoute
+      preLoaderRoute: typeof CmsClientsIdRouteImport
+      parentRoute: typeof CmsClientsRoute
     }
-    '/clients/new': {
-      id: '/clients/new'
+    '/_cms/clients/new': {
+      id: '/_cms/clients/new'
       path: '/new'
       fullPath: '/clients/new'
-      preLoaderRoute: typeof ClientsNewRouteImport
-      parentRoute: typeof ClientsRoute
+      preLoaderRoute: typeof CmsClientsNewRouteImport
+      parentRoute: typeof CmsClientsRoute
     }
-    '/portfolio/': {
-      id: '/portfolio/'
+    '/_cms/portfolio/': {
+      id: '/_cms/portfolio/'
       path: '/'
       fullPath: '/portfolio/'
-      preLoaderRoute: typeof PortfolioIndexRouteImport
-      parentRoute: typeof PortfolioRoute
+      preLoaderRoute: typeof CmsPortfolioIndexRouteImport
+      parentRoute: typeof CmsPortfolioRoute
     }
-    '/portfolio/$id': {
-      id: '/portfolio/$id'
+    '/_cms/portfolio/$id': {
+      id: '/_cms/portfolio/$id'
       path: '/$id'
       fullPath: '/portfolio/$id'
-      preLoaderRoute: typeof PortfolioIdRouteImport
-      parentRoute: typeof PortfolioRoute
+      preLoaderRoute: typeof CmsPortfolioIdRouteImport
+      parentRoute: typeof CmsPortfolioRoute
     }
-    '/portfolio/categories': {
-      id: '/portfolio/categories'
+    '/_cms/portfolio/categories': {
+      id: '/_cms/portfolio/categories'
       path: '/categories'
       fullPath: '/portfolio/categories'
-      preLoaderRoute: typeof PortfolioCategoriesRouteImport
-      parentRoute: typeof PortfolioRoute
+      preLoaderRoute: typeof CmsPortfolioCategoriesRouteImport
+      parentRoute: typeof CmsPortfolioRoute
     }
-    '/portfolio/import': {
-      id: '/portfolio/import'
+    '/_cms/portfolio/import': {
+      id: '/_cms/portfolio/import'
       path: '/import'
       fullPath: '/portfolio/import'
-      preLoaderRoute: typeof PortfolioImportRouteImport
-      parentRoute: typeof PortfolioRoute
+      preLoaderRoute: typeof CmsPortfolioImportRouteImport
+      parentRoute: typeof CmsPortfolioRoute
     }
-    '/portfolio/new': {
-      id: '/portfolio/new'
+    '/_cms/portfolio/new': {
+      id: '/_cms/portfolio/new'
       path: '/new'
       fullPath: '/portfolio/new'
-      preLoaderRoute: typeof PortfolioNewRouteImport
-      parentRoute: typeof PortfolioRoute
+      preLoaderRoute: typeof CmsPortfolioNewRouteImport
+      parentRoute: typeof CmsPortfolioRoute
     }
-    '/portfolio/tags': {
-      id: '/portfolio/tags'
+    '/_cms/portfolio/tags': {
+      id: '/_cms/portfolio/tags'
       path: '/tags'
       fullPath: '/portfolio/tags'
-      preLoaderRoute: typeof PortfolioTagsRouteImport
-      parentRoute: typeof PortfolioRoute
+      preLoaderRoute: typeof CmsPortfolioTagsRouteImport
+      parentRoute: typeof CmsPortfolioRoute
     }
-    '/blog/preview/$id': {
-      id: '/blog/preview/$id'
+    '/_cms/blog/preview/$id': {
+      id: '/_cms/blog/preview/$id'
       path: '/preview/$id'
       fullPath: '/blog/preview/$id'
-      preLoaderRoute: typeof BlogPreviewIdRouteImport
-      parentRoute: typeof BlogRoute
+      preLoaderRoute: typeof CmsBlogPreviewIdRouteImport
+      parentRoute: typeof CmsBlogRoute
     }
   }
 }
 
-interface BlogRouteChildren {
-  BlogIdRoute: typeof BlogIdRoute
-  BlogCategoriesRoute: typeof BlogCategoriesRoute
-  BlogImportRoute: typeof BlogImportRoute
-  BlogNewRoute: typeof BlogNewRoute
-  BlogTagsRoute: typeof BlogTagsRoute
-  BlogIndexRoute: typeof BlogIndexRoute
-  BlogPreviewIdRoute: typeof BlogPreviewIdRoute
+interface CmsBlogRouteChildren {
+  CmsBlogIdRoute: typeof CmsBlogIdRoute
+  CmsBlogCategoriesRoute: typeof CmsBlogCategoriesRoute
+  CmsBlogImportRoute: typeof CmsBlogImportRoute
+  CmsBlogNewRoute: typeof CmsBlogNewRoute
+  CmsBlogTagsRoute: typeof CmsBlogTagsRoute
+  CmsBlogIndexRoute: typeof CmsBlogIndexRoute
+  CmsBlogPreviewIdRoute: typeof CmsBlogPreviewIdRoute
 }
 
-const BlogRouteChildren: BlogRouteChildren = {
-  BlogIdRoute: BlogIdRoute,
-  BlogCategoriesRoute: BlogCategoriesRoute,
-  BlogImportRoute: BlogImportRoute,
-  BlogNewRoute: BlogNewRoute,
-  BlogTagsRoute: BlogTagsRoute,
-  BlogIndexRoute: BlogIndexRoute,
-  BlogPreviewIdRoute: BlogPreviewIdRoute,
+const CmsBlogRouteChildren: CmsBlogRouteChildren = {
+  CmsBlogIdRoute: CmsBlogIdRoute,
+  CmsBlogCategoriesRoute: CmsBlogCategoriesRoute,
+  CmsBlogImportRoute: CmsBlogImportRoute,
+  CmsBlogNewRoute: CmsBlogNewRoute,
+  CmsBlogTagsRoute: CmsBlogTagsRoute,
+  CmsBlogIndexRoute: CmsBlogIndexRoute,
+  CmsBlogPreviewIdRoute: CmsBlogPreviewIdRoute,
 }
 
-const BlogRouteWithChildren = BlogRoute._addFileChildren(BlogRouteChildren)
+const CmsBlogRouteWithChildren =
+  CmsBlogRoute._addFileChildren(CmsBlogRouteChildren)
 
-interface ClientsRouteChildren {
-  ClientsIdRoute: typeof ClientsIdRoute
-  ClientsNewRoute: typeof ClientsNewRoute
-  ClientsIndexRoute: typeof ClientsIndexRoute
+interface CmsClientsRouteChildren {
+  CmsClientsIdRoute: typeof CmsClientsIdRoute
+  CmsClientsNewRoute: typeof CmsClientsNewRoute
+  CmsClientsIndexRoute: typeof CmsClientsIndexRoute
 }
 
-const ClientsRouteChildren: ClientsRouteChildren = {
-  ClientsIdRoute: ClientsIdRoute,
-  ClientsNewRoute: ClientsNewRoute,
-  ClientsIndexRoute: ClientsIndexRoute,
+const CmsClientsRouteChildren: CmsClientsRouteChildren = {
+  CmsClientsIdRoute: CmsClientsIdRoute,
+  CmsClientsNewRoute: CmsClientsNewRoute,
+  CmsClientsIndexRoute: CmsClientsIndexRoute,
 }
 
-const ClientsRouteWithChildren =
-  ClientsRoute._addFileChildren(ClientsRouteChildren)
-
-interface PortfolioRouteChildren {
-  PortfolioIdRoute: typeof PortfolioIdRoute
-  PortfolioCategoriesRoute: typeof PortfolioCategoriesRoute
-  PortfolioImportRoute: typeof PortfolioImportRoute
-  PortfolioNewRoute: typeof PortfolioNewRoute
-  PortfolioTagsRoute: typeof PortfolioTagsRoute
-  PortfolioIndexRoute: typeof PortfolioIndexRoute
-}
-
-const PortfolioRouteChildren: PortfolioRouteChildren = {
-  PortfolioIdRoute: PortfolioIdRoute,
-  PortfolioCategoriesRoute: PortfolioCategoriesRoute,
-  PortfolioImportRoute: PortfolioImportRoute,
-  PortfolioNewRoute: PortfolioNewRoute,
-  PortfolioTagsRoute: PortfolioTagsRoute,
-  PortfolioIndexRoute: PortfolioIndexRoute,
-}
-
-const PortfolioRouteWithChildren = PortfolioRoute._addFileChildren(
-  PortfolioRouteChildren,
+const CmsClientsRouteWithChildren = CmsClientsRoute._addFileChildren(
+  CmsClientsRouteChildren,
 )
 
+interface CmsPortfolioRouteChildren {
+  CmsPortfolioIdRoute: typeof CmsPortfolioIdRoute
+  CmsPortfolioCategoriesRoute: typeof CmsPortfolioCategoriesRoute
+  CmsPortfolioImportRoute: typeof CmsPortfolioImportRoute
+  CmsPortfolioNewRoute: typeof CmsPortfolioNewRoute
+  CmsPortfolioTagsRoute: typeof CmsPortfolioTagsRoute
+  CmsPortfolioIndexRoute: typeof CmsPortfolioIndexRoute
+}
+
+const CmsPortfolioRouteChildren: CmsPortfolioRouteChildren = {
+  CmsPortfolioIdRoute: CmsPortfolioIdRoute,
+  CmsPortfolioCategoriesRoute: CmsPortfolioCategoriesRoute,
+  CmsPortfolioImportRoute: CmsPortfolioImportRoute,
+  CmsPortfolioNewRoute: CmsPortfolioNewRoute,
+  CmsPortfolioTagsRoute: CmsPortfolioTagsRoute,
+  CmsPortfolioIndexRoute: CmsPortfolioIndexRoute,
+}
+
+const CmsPortfolioRouteWithChildren = CmsPortfolioRoute._addFileChildren(
+  CmsPortfolioRouteChildren,
+)
+
+interface CmsRouteChildren {
+  CmsBlogRoute: typeof CmsBlogRouteWithChildren
+  CmsClientsRoute: typeof CmsClientsRouteWithChildren
+  CmsMediaRoute: typeof CmsMediaRoute
+  CmsPortfolioRoute: typeof CmsPortfolioRouteWithChildren
+  CmsSettingsRoute: typeof CmsSettingsRoute
+  CmsIndexRoute: typeof CmsIndexRoute
+}
+
+const CmsRouteChildren: CmsRouteChildren = {
+  CmsBlogRoute: CmsBlogRouteWithChildren,
+  CmsClientsRoute: CmsClientsRouteWithChildren,
+  CmsMediaRoute: CmsMediaRoute,
+  CmsPortfolioRoute: CmsPortfolioRouteWithChildren,
+  CmsSettingsRoute: CmsSettingsRoute,
+  CmsIndexRoute: CmsIndexRoute,
+}
+
+const CmsRouteWithChildren = CmsRoute._addFileChildren(CmsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  CmsRoute: CmsRouteWithChildren,
   AuthRoute: AuthRoute,
-  BlogRoute: BlogRouteWithChildren,
-  ClientsRoute: ClientsRouteWithChildren,
-  MediaRoute: MediaRoute,
-  PortfolioRoute: PortfolioRouteWithChildren,
-  SettingsRoute: SettingsRoute,
+  LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -22,7 +22,7 @@ import {
 } from "@/lib/blog";
 import type { Category } from "@/types";
 
-export const Route = createFileRoute("/blog/")({
+export const Route = createFileRoute("/_cms/blog/")({
   head: () => ({
     meta: [
       { title: "Blog — Bluluma CMS Admin" },
