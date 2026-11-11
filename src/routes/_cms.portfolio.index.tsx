@@ -27,7 +27,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { filterPortfolioTab } from "@/lib/portfolio-editor";
+import { filterPortfolioTab, PORTFOLIO_WEBSITES, applyShowOn, type ShowOnMode } from "@/lib/portfolio-editor";
+import { bulkSetStatus, bulkSetShowOn } from "@/lib/portfolio-screenshots";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Check, Inbox, Globe, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -205,6 +210,27 @@ function PortfolioPage() {
     setSelected(next ? new Set(allIds) : new Set());
   };
 
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [sitePick, setSitePick] = useState<string[]>([]);
+  const [siteMode, setSiteMode] = useState<ShowOnMode>("add");
+  const [siteOpen, setSiteOpen] = useState(false);
+  const runBulk = async (action: () => Promise<number>) => {
+    if (!selectedClient || selected.size === 0 || bulkBusy) return;
+    setBulkBusy(true);
+    try {
+      const n = await action();
+      toast.success(`Updated ${n} items`);
+      setSelected(new Set());
+      setSiteOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Bulk update failed");
+    } finally {
+      setBulkBusy(false);
+      refresh();
+    }
+  };
+  const selectedItems = () => visibleItems.filter((i) => selected.has(i.id));
+
   const refresh = () => {
     if (!selectedClient) return;
     queryClient.invalidateQueries({ queryKey: ["portfolio", selectedClient.id] });
@@ -354,6 +380,9 @@ function PortfolioPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Manage portfolio items for {selectedClient.client_name}
           </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Inbox = not public. Published = live on the websites checked (BluLuma / SonyKun / SwiftLift). One portfolio can appear on several websites.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/portfolio/import">
@@ -377,6 +406,35 @@ function PortfolioPage() {
         setSelected(new Set());
         setTab(value === "published" ? "published" : "draft");
       }} className="mt-6"><TabsList><TabsTrigger value="draft">Inbox ({filterPortfolioTab(items ?? [], "draft").length})</TabsTrigger><TabsTrigger value="published">Published ({filterPortfolioTab(items ?? [], "published").length})</TabsTrigger></TabsList></Tabs>
+
+      {someSelected && (
+        <div className="sticky top-0 z-30 mt-4 flex flex-wrap items-center gap-2 rounded-lg border bg-background p-3 shadow-md">
+          <span className="mr-2 text-sm font-semibold">{selected.size} selected</span>
+          <Button size="sm" disabled={bulkBusy} onClick={() => runBulk(() => bulkSetStatus(Array.from(selected), selectedClient.id, "published"))}><Check className="mr-1 h-4 w-4" />Publish</Button>
+          <Button size="sm" variant="outline" disabled={bulkBusy} onClick={() => runBulk(() => bulkSetStatus(Array.from(selected), selectedClient.id, "draft"))}><Inbox className="mr-1 h-4 w-4" />Move to Inbox</Button>
+          <Popover open={siteOpen} onOpenChange={setSiteOpen}>
+            <PopoverTrigger asChild><Button size="sm" variant="outline" disabled={bulkBusy}><Globe className="mr-1 h-4 w-4" />Show on</Button></PopoverTrigger>
+            <PopoverContent className="w-64 space-y-3">
+              <div className="space-y-2">
+                {PORTFOLIO_WEBSITES.map((w) => (
+                  <label key={w.value} className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={sitePick.includes(w.value)} onCheckedChange={(v) => setSitePick((p) => v === true ? [...new Set([...p, w.value])] : p.filter((x) => x !== w.value))} />
+                    {w.label}
+                  </label>
+                ))}
+              </div>
+              <RadioGroup value={siteMode} onValueChange={(v) => setSiteMode(v as ShowOnMode)} className="gap-1 border-t pt-2">
+                {([["add", "Add to existing"], ["remove", "Remove from existing"], ["set", "Set exactly"]] as const).map(([v, l]) => (
+                  <div key={v} className="flex items-center gap-2"><RadioGroupItem value={v} id={`mode-${v}`} /><Label htmlFor={`mode-${v}`} className="text-sm font-normal">{l}</Label></div>
+                ))}
+              </RadioGroup>
+              <Button size="sm" className="w-full" disabled={bulkBusy || (siteMode !== "set" && sitePick.length === 0)}
+                onClick={() => runBulk(() => bulkSetShowOn(selectedItems(), selectedClient.id, (cur) => applyShowOn(cur, sitePick, siteMode)))}>Apply</Button>
+            </PopoverContent>
+          </Popover>
+          <Button size="sm" variant="ghost" disabled={bulkBusy} onClick={() => setSelected(new Set())}><X className="mr-1 h-4 w-4" />Clear selection</Button>
+        </div>
+      )}
 
       {orderedItems.length > 0 && (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">

@@ -31,3 +31,16 @@ export function safeWebsiteUrl(value: string | null | undefined) {
     return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
   } catch { return null; }
 }
+export type ShowOnMode = "set" | "add" | "remove";
+const WEBSITE_VALUES = PORTFOLIO_WEBSITES.map((w) => w.value as string);
+
+export function applyShowOn(current: string[] | null | undefined, picked: string[], mode: ShowOnMode) {
+  const cur = current ?? [];
+  const next = mode === "set" ? picked : mode === "add" ? [...cur, ...picked] : cur.filter((v) => !picked.includes(v));
+  const unique = [...new Set(next)];
+  return [...WEBSITE_VALUES.filter((v) => unique.includes(v)), ...unique.filter((v) => !WEBSITE_VALUES.includes(v))];
+}
+
+export function showOnAfterPublish(current: string[] | null | undefined) {
+  return current && current.length > 0 ? current : ["bluluma"];
+}

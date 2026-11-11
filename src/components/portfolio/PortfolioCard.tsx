@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ExternalLink, Pencil, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,7 +20,8 @@ import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 import { GalleryManager } from "@/components/portfolio/GalleryManager";
 import { PortfolioScreenshots } from "@/components/portfolio/PortfolioScreenshots";
 import { PORTFOLIO_WEBSITES } from "@/lib/portfolio-editor";
-import { publishPortfolioItem } from "@/lib/portfolio-screenshots";
+import { publishWithDefaultSite, bulkSetShowOn } from "@/lib/portfolio-screenshots";
+import { toggleSelection } from "@/lib/portfolio-editor";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface PortfolioCardProps {
@@ -37,11 +38,30 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
   const services = details?.services ?? [];
   const [editOpen, setEditOpen] = useState(false);
   const queryClient = useQueryClient();
-  const publish = useMutation({ mutationFn: () => publishPortfolioItem(item.id, client.id), onSuccess: () => {
+  const publish = useMutation({ mutationFn: () => publishWithDefaultSite(item, client.id), onSuccess: () => {
     toast.success("Portfolio published");
     onEdited();
     void queryClient.invalidateQueries({ queryKey: ["portfolio-item", item.id] });
   }, onError: (err) => toast.error(err instanceof Error ? err.message : "Could not publish") });
+
+  const [showOn, setShowOn] = useState<string[]>(item.show_on ?? []);
+  const [savingSite, setSavingSite] = useState(false);
+  const savedSites = (item.show_on ?? []).join(",");
+  useEffect(() => { setShowOn(savedSites ? savedSites.split(",") : []); }, [savedSites]);
+  const toggleSite = async (value: string) => {
+    if (savingSite) return;
+    const previous = showOn;
+    const next = toggleSelection(previous, value, !previous.includes(value));
+    setShowOn(next);
+    setSavingSite(true);
+    try {
+      await bulkSetShowOn([{ id: item.id, show_on: previous }], client.id, () => next);
+      onEdited();
+    } catch (err) {
+      setShowOn(previous);
+      toast.error(err instanceof Error ? err.message : "Could not update websites");
+    } finally { setSavingSite(false); }
+  };
 
   const handleSave = async (data: PortfolioFormData, dynamic: DynamicSaveInput) => {
     try {
@@ -107,7 +127,17 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
           {item.title}
         </h3>
         <p className="mt-1 text-xs text-muted-foreground">{item.categories?.map((category) => category.name).join(" · ") || "Uncategorized"}</p>
-        <div className="mt-2 flex flex-wrap gap-1">{(item.show_on ?? []).map((value) => <span key={value} className="rounded bg-accent px-2 py-0.5 text-xs text-accent-foreground">{PORTFOLIO_WEBSITES.find((website) => website.value === value)?.label ?? value}</span>)}</div>
+        <div className="mt-2 flex flex-wrap gap-1" aria-label="Show on websites">
+          {PORTFOLIO_WEBSITES.map((w) => {
+            const active = showOn.includes(w.value);
+            return (
+              <button key={w.value} type="button" aria-pressed={active} disabled={savingSite} onClick={() => toggleSite(w.value)}
+                className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-60 ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"}`}>
+                {w.label}
+              </button>
+            );
+          })}
+        </div>
 
         {item.excerpt && (
           <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
