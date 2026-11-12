@@ -86,3 +86,14 @@ describe("featured quick toggle", () => {
     expect(countFeatured(items, new Map([["b", true], ["c", false]]))).toBe(2);
   });
 });
+
+describe("bulk featured", () => {
+  it("marks many as pending featured and drops entries already in that state", async () => {
+    const { setPendingFeaturedMany } = await import("@/lib/portfolio-editor");
+    const items = [{ id: "a", is_featured: false }, { id: "b", is_featured: true }, { id: "c", is_featured: false }];
+    const on = setPendingFeaturedMany(new Map([["b", false]]), items, ["a", "b", "x"], true);
+    expect([...on]).toEqual([["a", true]]);
+    const off = setPendingFeaturedMany(on, items, ["a", "c"], false);
+    expect(off.size).toBe(0);
+  });
+});

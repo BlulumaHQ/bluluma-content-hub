@@ -53,6 +53,23 @@ export function togglePendingFeatured(pending: Map<string, boolean>, id: string,
   return next;
 }
 
+/** Set many items to the same featured value as pending changes (saved state removes the entry). */
+export function setPendingFeaturedMany(
+  pending: Map<string, boolean>,
+  items: { id: string; is_featured: boolean | null }[],
+  ids: Iterable<string>,
+  value: boolean,
+) {
+  const next = new Map(pending);
+  const saved = new Map(items.map((i) => [i.id, !!i.is_featured]));
+  for (const id of ids) {
+    if (!saved.has(id)) continue;
+    if (saved.get(id) === value) next.delete(id);
+    else next.set(id, value);
+  }
+  return next;
+}
+
 export function splitFeaturedChanges(pending: Map<string, boolean>) {
   const on: string[] = [], off: string[] = [];
   pending.forEach((v, id) => (v ? on : off).push(id));

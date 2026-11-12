@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { filterPortfolioTab, PORTFOLIO_WEBSITES, applyShowOn, type ShowOnMode, togglePendingFeatured, splitFeaturedChanges, countFeatured } from "@/lib/portfolio-editor";
+import { filterPortfolioTab, PORTFOLIO_WEBSITES, applyShowOn, type ShowOnMode, togglePendingFeatured, setPendingFeaturedMany, splitFeaturedChanges, countFeatured } from "@/lib/portfolio-editor";
 import { Star } from "lucide-react";
 import { bulkSetStatus, bulkSetShowOn } from "@/lib/portfolio-screenshots";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -453,6 +453,8 @@ function PortfolioPage() {
           <span className="mr-2 text-sm font-semibold">{selected.size} selected</span>
           <Button size="sm" disabled={bulkBusy} onClick={() => runBulk(() => bulkSetStatus(Array.from(selected), selectedClient.id, "published"))}><Check className="mr-1 h-4 w-4" />Publish</Button>
           <Button size="sm" variant="outline" disabled={bulkBusy} onClick={() => runBulk(() => bulkSetStatus(Array.from(selected), selectedClient.id, "draft"))}><Inbox className="mr-1 h-4 w-4" />Move to Inbox</Button>
+          <Button size="sm" variant="outline" disabled={bulkBusy} onClick={() => { setPendingFeatured((p) => setPendingFeaturedMany(p, items ?? [], selected, true)); setSelected(new Set()); }}><Star className="mr-1 h-4 w-4 fill-[var(--featured)] text-[var(--featured)]" />Mark featured</Button>
+          <Button size="sm" variant="outline" disabled={bulkBusy} onClick={() => { setPendingFeatured((p) => setPendingFeaturedMany(p, items ?? [], selected, false)); setSelected(new Set()); }}><Star className="mr-1 h-4 w-4" />Remove featured</Button>
           <Popover open={siteOpen} onOpenChange={setSiteOpen}>
             <PopoverTrigger asChild><Button size="sm" variant="outline" disabled={bulkBusy}><Globe className="mr-1 h-4 w-4" />Show on</Button></PopoverTrigger>
             <PopoverContent className="w-64 space-y-3">
