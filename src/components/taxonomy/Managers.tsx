@@ -63,6 +63,17 @@ export function CategoriesManager({
   const refresh = () =>
     qc.invalidateQueries({ queryKey: ["categories", categoryType, selectedClient.id] });
 
+  const saveNameZh = async (id: string, previous: string, next: string) => {
+    const value = next.trim();
+    if (value === previous.trim()) return;
+    const { error } = await supabase.from("categories").update({ name_zh: value || null }).eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("中文名稱已更新");
+      refresh();
+    }
+  };
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -146,7 +157,19 @@ export function CategoriesManager({
                 {data.map((c) => (
                   <tr key={c.id} className="border-b last:border-0">
                     <td className="px-4 py-2 font-medium">{c.name}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{c.name_zh ?? "—"}</td>
+                    <td className="px-4 py-2">
+                      <Input
+                        key={`${c.id}:${c.name_zh ?? ""}`}
+                        defaultValue={c.name_zh ?? ""}
+                        placeholder="—"
+                        aria-label={`中文名稱：${c.name}`}
+                        className="h-8 min-w-[10rem]"
+                        onBlur={(e) => saveNameZh(c.id, c.name_zh ?? "", e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") e.currentTarget.blur();
+                        }}
+                      />
+                    </td>
                     <td className="px-4 py-2 text-muted-foreground">{c.slug ?? "—"}</td>
                     <td className="px-4 py-2 text-muted-foreground">{c.sort_order ?? 0}</td>
                     <td className="px-4 py-2 text-right">
