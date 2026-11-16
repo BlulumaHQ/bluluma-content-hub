@@ -4,6 +4,7 @@ export const PORTFOLIO_WEBSITES = [
   { value: "bluluma", label: "BluLuma" },
   { value: "sonykun", label: "SonyKun" },
   { value: "swiftlift", label: "SwiftLift" },
+  { value: "swiftsite", label: "SwiftSite" },
 ] as const;
 
 export const DEFAULT_PORTFOLIO_SERVICES = [

@@ -15,6 +15,11 @@ describe("Portfolio bulk actions", () => {
   it("Add mode keeps existing websites", () => expect(applyShowOn(["bluluma"], ["sonykun"], "add")).toEqual(["bluluma", "sonykun"]));
   it("Remove mode removes only picked websites", () => expect(applyShowOn(["bluluma", "sonykun"], ["sonykun"], "remove")).toEqual(["bluluma"]));
   it("Set mode uses exactly the checked websites", () => expect(applyShowOn(["bluluma"], ["swiftlift"], "set")).toEqual(["swiftlift"]));
+  it("SwiftSite is a valid website value in every mode", () => {
+    expect(applyShowOn(["bluluma"], ["swiftsite"], "add")).toEqual(["bluluma", "swiftsite"]);
+    expect(applyShowOn(["bluluma", "swiftsite"], ["swiftsite"], "remove")).toEqual(["bluluma"]);
+    expect(applyShowOn(["sonykun"], ["swiftsite"], "set")).toEqual(["swiftsite"]);
+  });
   it("publishing with no websites defaults to BluLuma", () => {
     expect(showOnAfterPublish([])).toEqual(["bluluma"]);
     expect(showOnAfterPublish(["sonykun"])).toEqual(["sonykun"]);

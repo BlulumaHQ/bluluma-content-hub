@@ -13,11 +13,11 @@ function fakeClient(error: { message: string } | null = null) {
 }
 
 describe("Portfolio editor rules", () => {
-  it("stores the three exact website values as a text array", () => {
-    expect(PORTFOLIO_WEBSITES.map((w) => w.value)).toEqual(["bluluma", "sonykun", "swiftlift"]);
+  it("stores the four exact website values as a text array", () => {
+    expect(PORTFOLIO_WEBSITES.map((w) => w.value)).toEqual(["bluluma", "sonykun", "swiftlift", "swiftsite"]);
     const form = newPortfolioEditorForm();
-    form.show_on = ["bluluma", "sonykun", "swiftlift"];
-    expect(buildContentPayload(form).show_on).toEqual(["bluluma", "sonykun", "swiftlift"]);
+    form.show_on = ["bluluma", "sonykun", "swiftlift", "swiftsite"];
+    expect(buildContentPayload(form).show_on).toEqual(["bluluma", "sonykun", "swiftlift", "swiftsite"]);
   });
   it("new editor items have all five services checked without changing importer defaults", () => {
     expect(newPortfolioEditorForm().services).toEqual(["Website Design", "Logo Design", "Branding", "Marketing Materials", "SEO"]);

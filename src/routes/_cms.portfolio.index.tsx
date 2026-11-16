@@ -422,7 +422,7 @@ function PortfolioPage() {
             Manage portfolio items for {selectedClient.client_name}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Inbox = not public. Published = live on the websites checked (BluLuma / SonyKun / SwiftLift). One portfolio can appear on several websites.
+            Inbox = not public. Published = live on the websites checked (BluLuma / SonyKun / SwiftLift / SwiftSite). One portfolio can appear on several websites.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
