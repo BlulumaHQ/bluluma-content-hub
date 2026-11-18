@@ -55,6 +55,27 @@ export async function bulkSetShowOn(items: Item[], clientId: string, compute: (c
   return total;
 }
 
+/** Set per-website featured flags (content_items.featured_on) for many items, grouped by resulting value. */
+export async function bulkSetFeaturedOn(items: { id: string; featured_on?: string[] | null }[], clientId: string, compute: (cur: string[] | null | undefined) => string[], client = supabase) {
+  const groups = new Map<string, { value: string[]; ids: string[] }>();
+  for (const item of items) {
+    const value = compute(item.featured_on);
+    const key = JSON.stringify(value);
+    const g = groups.get(key) ?? { value, ids: [] };
+    g.ids.push(item.id);
+    groups.set(key, g);
+  }
+  let total = 0;
+  for (const g of groups.values()) {
+    const { data, error } = await client.from("content_items")
+      .update({ featured_on: g.value, updated_at: new Date().toISOString() })
+      .in("id", g.ids).eq("client_id", clientId).eq("content_type", "portfolio").select("id");
+    if (error) throw new Error(error.message);
+    total += failIfShort(data, g.ids.length);
+  }
+  return total;
+}
+
 /** Publish one draft; give it BluLuma when it has no websites. */
 export async function publishWithDefaultSite(item: Item, clientId: string, client = supabase) {
   const show_on = item.show_on && item.show_on.length > 0 ? item.show_on : ["bluluma"];

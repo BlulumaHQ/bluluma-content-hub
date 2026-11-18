@@ -28,6 +28,8 @@ export interface ContentItem {
   body_content_zh?: string | null;
   featured_image_url: string | null;
   show_on?: string[] | null;
+  /** Websites where this item is highlighted (e.g. SwiftLift homepage). */
+  featured_on?: string[] | null;
   status: "draft" | "published" | "archived";
   is_featured: boolean;
   sort_order: number;

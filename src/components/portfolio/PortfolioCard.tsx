@@ -21,7 +21,7 @@ import { PortfolioForm } from "@/components/portfolio/PortfolioForm";
 import { GalleryManager } from "@/components/portfolio/GalleryManager";
 import { PortfolioScreenshots } from "@/components/portfolio/PortfolioScreenshots";
 import { PORTFOLIO_WEBSITES } from "@/lib/portfolio-editor";
-import { publishWithDefaultSite, bulkSetShowOn } from "@/lib/portfolio-screenshots";
+import { publishWithDefaultSite, bulkSetShowOn, bulkSetFeaturedOn } from "@/lib/portfolio-screenshots";
 import { toggleSelection } from "@/lib/portfolio-editor";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -65,6 +65,25 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
       setShowOn(previous);
       toast.error(err instanceof Error ? err.message : "Could not update websites");
     } finally { setSavingSite(false); }
+  };
+
+  const [featuredOn, setFeaturedOn] = useState<string[]>(item.featured_on ?? []);
+  const [savingFeat, setSavingFeat] = useState(false);
+  const savedFeat = (item.featured_on ?? []).join(",");
+  useEffect(() => { setFeaturedOn(savedFeat ? savedFeat.split(",") : []); }, [savedFeat]);
+  const toggleFeaturedOn = async (value: string) => {
+    if (savingFeat) return;
+    const previous = featuredOn;
+    const next = toggleSelection(previous, value, !previous.includes(value));
+    setFeaturedOn(next);
+    setSavingFeat(true);
+    try {
+      await bulkSetFeaturedOn([{ id: item.id, featured_on: previous }], client.id, () => next);
+      onEdited();
+    } catch (err) {
+      setFeaturedOn(previous);
+      toast.error(err instanceof Error ? err.message : "Could not update featured websites");
+    } finally { setSavingFeat(false); }
   };
 
   const handleSave = async (data: PortfolioFormData, dynamic: DynamicSaveInput) => {
@@ -159,6 +178,23 @@ export function PortfolioCard({ item, client, onDelete, onEdited, selected, onTo
             return (
               <button key={w.value} type="button" aria-pressed={active} disabled={savingSite} onClick={() => toggleSite(w.value)}
                 className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-60 ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"}`}>
+                {w.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-1.5 flex flex-wrap items-center gap-1" aria-label="Featured on websites">
+          <span className="mr-0.5 text-[11px] font-medium text-muted-foreground">Featured on</span>
+          {PORTFOLIO_WEBSITES.map((w) => {
+            const shown = showOn.includes(w.value);
+            const active = featuredOn.includes(w.value);
+            return (
+              <button key={w.value} type="button" aria-pressed={active} disabled={savingFeat || (!shown && !active)}
+                title={shown ? (active ? `Featured on ${w.label} — click to remove` : `Feature on ${w.label}`) : `Not shown on ${w.label}`}
+                onClick={() => toggleFeaturedOn(w.value)}
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-40 ${active ? "border-[var(--featured)] bg-[var(--featured)]/15 text-foreground" : "border-dashed border-border bg-background text-muted-foreground hover:border-[var(--featured)]"}`}>
+                <Star className={`h-3 w-3 ${active ? "fill-[var(--featured)] text-[var(--featured)]" : ""}`} />
                 {w.label}
               </button>
             );

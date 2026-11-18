@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { filterPortfolioTab, PORTFOLIO_WEBSITES, applyShowOn, type ShowOnMode, togglePendingFeatured, setPendingFeaturedMany, splitFeaturedChanges, countFeatured } from "@/lib/portfolio-editor";
 import { Star } from "lucide-react";
-import { bulkSetStatus, bulkSetShowOn } from "@/lib/portfolio-screenshots";
+import { bulkSetStatus, bulkSetShowOn, bulkSetFeaturedOn } from "@/lib/portfolio-screenshots";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -97,6 +97,7 @@ function PortfolioPage() {
   const [tab, setTab] = useState<"draft" | "published">("draft");
   const [pendingFeatured, setPendingFeatured] = useState<Map<string, boolean>>(new Map());
   const [featuredOnly, setFeaturedOnly] = useState(false);
+  const [featSite, setFeatSite] = useState<string>("");
   const [savingFeatured, setSavingFeatured] = useState(false);
   const hasUnsaved = dirty || pendingFeatured.size > 0;
 
@@ -208,8 +209,9 @@ function PortfolioPage() {
   const isFeatured = (i: PortfolioItem) => (pendingFeatured.has(i.id) ? pendingFeatured.get(i.id)! : i.is_featured);
   const visibleItems = useMemo(() => {
     const list = filterPortfolioTab(orderedItems, tab);
-    return featuredOnly ? list.filter((i) => (pendingFeatured.has(i.id) ? pendingFeatured.get(i.id) : i.is_featured)) : list;
-  }, [orderedItems, tab, featuredOnly, pendingFeatured]);
+    const byFeat = featuredOnly ? list.filter((i) => (pendingFeatured.has(i.id) ? pendingFeatured.get(i.id) : i.is_featured)) : list;
+    return featSite ? byFeat.filter((i) => (i.featured_on ?? []).includes(featSite)) : byFeat;
+  }, [orderedItems, tab, featuredOnly, pendingFeatured, featSite]);
   const featuredCount = useMemo(() => countFeatured(items ?? [], pendingFeatured), [items, pendingFeatured]);
   const toggleFeatured = (id: string) => {
     const item = orderedItems.find((i) => i.id === id);
@@ -255,6 +257,9 @@ function PortfolioPage() {
   const [sitePick, setSitePick] = useState<string[]>([]);
   const [siteMode, setSiteMode] = useState<ShowOnMode>("add");
   const [siteOpen, setSiteOpen] = useState(false);
+  const [featPick, setFeatPick] = useState<string[]>([]);
+  const [featMode, setFeatMode] = useState<ShowOnMode>("add");
+  const [featOpen, setFeatOpen] = useState(false);
   const runBulk = async (action: () => Promise<number>) => {
     if (!selectedClient || selected.size === 0 || bulkBusy) return;
     setBulkBusy(true);
@@ -263,6 +268,7 @@ function PortfolioPage() {
       toast.success(`Updated ${n} items`);
       setSelected(new Set());
       setSiteOpen(false);
+      setFeatOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Bulk update failed");
     } finally {
@@ -475,6 +481,27 @@ function PortfolioPage() {
                 onClick={() => runBulk(() => bulkSetShowOn(selectedItems(), selectedClient.id, (cur) => applyShowOn(cur, sitePick, siteMode)))}>Apply</Button>
             </PopoverContent>
           </Popover>
+          <Popover open={featOpen} onOpenChange={setFeatOpen}>
+            <PopoverTrigger asChild><Button size="sm" variant="outline" disabled={bulkBusy}><Star className="mr-1 h-4 w-4 fill-[var(--featured)] text-[var(--featured)]" />Featured on</Button></PopoverTrigger>
+            <PopoverContent className="w-64 space-y-3">
+              <p className="text-xs text-muted-foreground">Highlight the selected items on these websites (e.g. SwiftLift homepage).</p>
+              <div className="space-y-2">
+                {PORTFOLIO_WEBSITES.map((w) => (
+                  <label key={w.value} className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={featPick.includes(w.value)} onCheckedChange={(v) => setFeatPick((p) => v === true ? [...new Set([...p, w.value])] : p.filter((x) => x !== w.value))} />
+                    {w.label}
+                  </label>
+                ))}
+              </div>
+              <RadioGroup value={featMode} onValueChange={(v) => setFeatMode(v as ShowOnMode)} className="gap-1 border-t pt-2">
+                {([["add", "Feature on these"], ["remove", "Un-feature on these"], ["set", "Set exactly"]] as const).map(([v, l]) => (
+                  <div key={v} className="flex items-center gap-2"><RadioGroupItem value={v} id={`feat-mode-${v}`} /><Label htmlFor={`feat-mode-${v}`} className="text-sm font-normal">{l}</Label></div>
+                ))}
+              </RadioGroup>
+              <Button size="sm" className="w-full" disabled={bulkBusy || (featMode !== "set" && featPick.length === 0)}
+                onClick={() => runBulk(() => bulkSetFeaturedOn(selectedItems(), selectedClient.id, (cur) => applyShowOn(cur, featPick, featMode)))}>Apply</Button>
+            </PopoverContent>
+          </Popover>
           <Button size="sm" variant="ghost" disabled={bulkBusy} onClick={() => setSelected(new Set())}><X className="mr-1 h-4 w-4" />Clear selection</Button>
         </div>
       )}
@@ -496,6 +523,11 @@ function PortfolioPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1 text-sm font-medium"><Star className="h-4 w-4 fill-[var(--featured)] text-[var(--featured)]" />Featured: {featuredCount}</span>
             <Button size="sm" variant={featuredOnly ? "default" : "outline"} aria-pressed={featuredOnly} onClick={() => setFeaturedOnly((v) => !v)}>Featured only</Button>
+            <select aria-label="Filter by featured website" value={featSite} onChange={(e) => { setFeatSite(e.target.value); setSelected(new Set()); }}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">Featured on: any</option>
+              {PORTFOLIO_WEBSITES.map((w) => <option key={w.value} value={w.value}>Featured on {w.label} ({(items ?? []).filter((i) => (i.featured_on ?? []).includes(w.value)).length})</option>)}
+            </select>
             {dirty && (
               <span className="text-sm font-medium text-amber-600">
                 Unsaved order changes
@@ -566,7 +598,7 @@ function PortfolioPage() {
                   onEdited={refresh}
                   selected={selected.has(item.id)}
                   onToggleSelect={toggleOne}
-                  disabled={saving || featuredOnly}
+                  disabled={saving || featuredOnly || !!featSite}
                   featured={isFeatured(item)}
                   featuredPending={pendingFeatured.has(item.id)}
                   onToggleFeatured={toggleFeatured}
